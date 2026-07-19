@@ -4,6 +4,10 @@ import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execPromise = promisify(exec);
 
 const app = express();
 app.use(cors());
@@ -46,77 +50,119 @@ app.post('/api/analyze', async (req, res) => {
     return res.status(400).json({ error: 'repoPath is required' });
   }
 
-  const resolvedPath = path.resolve(repoPath);
-  if (!existsSync(resolvedPath)) {
-    return res.status(400).json({ error: 'Directory does not exist locally' });
-  }
+  let resolvedPath = '';
+  let isTemp = false;
+  let tempDir = '';
+  let defaultProjectName = '';
 
-  // Attempt to parse standard files
-  const readme = await tryReadFile(path.join(resolvedPath, 'README.md'));
-  const strategy = await tryReadFile(path.join(resolvedPath, 'BUSINESS_STRATEGY.md'));
-  const posts = await tryReadFile(path.join(resolvedPath, 'LAUNCH_POSTS.md'));
-  const issues = await tryReadFile(path.join(resolvedPath, 'PROPOSED_ISSUES.md'));
+  const isGithubShorthand = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/.test(repoPath) && !existsSync(path.resolve(repoPath));
+  const isGit = repoPath.startsWith('http://') || repoPath.startsWith('https://') || repoPath.startsWith('git@') || isGithubShorthand;
 
-  // Detect project name & description
-  let projectName = path.basename(resolvedPath);
-  let projectDesc = 'A custom open-source business strategy.';
+  try {
+    if (isGit) {
+      let cloneUrl = repoPath;
+      if (isGithubShorthand) {
+        cloneUrl = `https://github.com/${repoPath}.git`;
+      }
+      tempDir = path.join(os.tmpdir(), `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+      
+      const cleanPath = repoPath.replace(/\.git$/, '');
+      defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
 
-  if (readme) {
-    const titleMatch = readme.match(/^#\s+(.+)$/m);
-    if (titleMatch) projectName = titleMatch[1].trim();
-    
-    const descLines = readme.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('>'));
-    if (descLines.length > 0) projectDesc = descLines[0].trim();
-  }
-
-  // Populate model
-  const data = {
-    projectName,
-    projectDesc,
-    hasCustomPlan: Boolean(strategy),
-    strategyMarkdown: strategy || `# ${projectName} Business Framework\n\nNo custom strategy file found. Using dynamically generated template.`,
-    postsMarkdown: posts || `# Pitch Posts\n\nNo pitch posts found.`,
-    issuesMarkdown: issues || `# Proposed Tasks\n\nNo tasks found.`,
-    tasks: [],
-    financials: {
-      labels: ['Revenue Split 1', 'Revenue Split 2', 'Revenue Split 3'],
-      values: [80, 15, 5]
+      try {
+        await execPromise(`git clone --depth 1 "${cloneUrl}" "${tempDir}"`);
+        resolvedPath = tempDir;
+        isTemp = true;
+      } catch (cloneErr) {
+        console.error('Failed to clone repository:', cloneErr);
+        return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
+      }
+    } else {
+      resolvedPath = path.resolve(repoPath);
+      if (!existsSync(resolvedPath)) {
+        return res.status(400).json({ error: 'Directory does not exist locally' });
+      }
+      defaultProjectName = path.basename(resolvedPath);
     }
-  };
 
-  // Parse tasks from PROPOSED_ISSUES.md or create default fallback
-  if (issues) {
-    const taskRegex = /-\s+\[\s*([\sxX]?)\s*\]\s+(.+)$/gm;
-    let match;
-    let index = 1;
-    while ((match = taskRegex.exec(issues)) !== null) {
-      data.tasks.push({
-        id: `task-${index++}`,
-        title: match[2].trim(),
-        status: match[1].toLowerCase() === 'x' ? 'done' : 'todo'
-      });
+    // Attempt to parse standard files
+    const readme = await tryReadFile(path.join(resolvedPath, 'README.md'));
+    const strategy = await tryReadFile(path.join(resolvedPath, 'BUSINESS_STRATEGY.md'));
+    const posts = await tryReadFile(path.join(resolvedPath, 'LAUNCH_POSTS.md'));
+    const issues = await tryReadFile(path.join(resolvedPath, 'PROPOSED_ISSUES.md'));
+
+    // Detect project name & description
+    let projectName = defaultProjectName;
+    let projectDesc = 'A custom open-source business strategy.';
+
+    if (readme) {
+      const titleMatch = readme.match(/^#\s+(.+)$/m);
+      if (titleMatch) projectName = titleMatch[1].trim();
+      
+      const descLines = readme.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('>'));
+      if (descLines.length > 0) projectDesc = descLines[0].trim();
     }
-  }
 
-  if (data.tasks.length === 0) {
-    // Generate fallback tasks based on codebase
-    data.tasks = [
-      { id: 'task-1', title: 'Onboard primary growers & suppliers', status: 'todo' },
-      { id: 'task-2', title: 'Verify logistics pickup hub agreements', status: 'todo' },
-      { id: 'task-3', title: 'Launch solarpunk marketing campaign', status: 'todo' },
-      { id: 'task-4', title: 'Configure payment processor split wallets', status: 'todo' }
-    ];
-  }
-
-  // Parse financials from strategy markdown if available (specific to coop-harvest)
-  if (strategy && strategy.includes('82%') && strategy.includes('13%') && strategy.includes('5%')) {
-    data.financials = {
-      labels: ['Direct Farm Revenue', 'Logistics Reserve', 'Administration Fee'],
-      values: [82, 13, 5]
+    // Populate model
+    const data = {
+      projectName,
+      projectDesc,
+      hasCustomPlan: Boolean(strategy),
+      strategyMarkdown: strategy || `# ${projectName} Business Framework\n\nNo custom strategy file found. Using dynamically generated template.`,
+      postsMarkdown: posts || `# Pitch Posts\n\nNo pitch posts found.`,
+      issuesMarkdown: issues || `# Proposed Tasks\n\nNo tasks found.`,
+      tasks: [],
+      financials: {
+        labels: ['Revenue Split 1', 'Revenue Split 2', 'Revenue Split 3'],
+        values: [80, 15, 5]
+      }
     };
-  }
 
-  res.json(data);
+    // Parse tasks from PROPOSED_ISSUES.md or create default fallback
+    if (issues) {
+      const taskRegex = /-\s+\[\s*([\sxX]?)\s*\]\s+(.+)$/gm;
+      let match;
+      let index = 1;
+      while ((match = taskRegex.exec(issues)) !== null) {
+        data.tasks.push({
+          id: `task-${index++}`,
+          title: match[2].trim(),
+          status: match[1].toLowerCase() === 'x' ? 'done' : 'todo'
+        });
+      }
+    }
+
+    if (data.tasks.length === 0) {
+      // Generate fallback tasks based on codebase
+      data.tasks = [
+        { id: 'task-1', title: 'Onboard primary growers & suppliers', status: 'todo' },
+        { id: 'task-2', title: 'Verify logistics pickup hub agreements', status: 'todo' },
+        { id: 'task-3', title: 'Launch solarpunk marketing campaign', status: 'todo' },
+        { id: 'task-4', title: 'Configure payment processor split wallets', status: 'todo' }
+      ];
+    }
+
+    // Parse financials from strategy markdown if available (specific to coop-harvest)
+    if (strategy && strategy.includes('82%') && strategy.includes('13%') && strategy.includes('5%')) {
+      data.financials = {
+        labels: ['Direct Farm Revenue', 'Logistics Reserve', 'Administration Fee'],
+        values: [82, 13, 5]
+      };
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('Analysis error:', err);
+    res.status(500).json({ error: 'Internal server error during analysis.' });
+  } finally {
+    if (isTemp && tempDir) {
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+      } catch (rmErr) {
+        console.error('Failed to clean up temp directory:', rmErr);
+      }
+    }
+  }
 });
 
 // Proxy agent prompts to local OpenClaw gateway
@@ -139,13 +185,15 @@ app.post('/api/chat', async (req, res) => {
 
   try {
     const gatewayConfig = await getOpenClawConfig();
-    const endpoint = `http://localhost:${gatewayConfig.port}/v1/chat/completions`;
+    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://localhost:${gatewayConfig.port}`;
+    const endpoint = `${gatewayUrl}/v1/chat/completions`;
 
     const headers = {
       'Content-Type': 'application/json'
     };
-    if (gatewayConfig.token) {
-      headers['Authorization'] = `Bearer ${gatewayConfig.token}`;
+    const token = process.env.OPENCLAW_GATEWAY_TOKEN || gatewayConfig.token;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     const payload = {

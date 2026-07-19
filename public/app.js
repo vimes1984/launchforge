@@ -112,7 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       if (!response.ok) {
-        throw new Error(await response.text());
+        let errMsg = 'Analysis failed.';
+        try {
+          const errData = await response.json();
+          errMsg = errData.error || errMsg;
+        } catch {
+          errMsg = await response.text() || errMsg;
+        }
+        throw new Error(errMsg);
       }
       
       const data = await response.json();
@@ -155,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (err) {
       console.error(err);
-      projectDesc.textContent = 'Analysis failed. Make sure the local path is correct.';
+      projectDesc.textContent = err.message || 'Analysis failed. Make sure the local path or GitHub URL is correct.';
     }
   }
 

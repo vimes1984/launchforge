@@ -1,0 +1,99 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "/root/.openclaw/workspace",
+      "model": {
+        "primary": "google/gemini-3.5-flash"
+      },
+      "models": {
+        "openai/gpt-5.5": {},
+        "anthropic/claude-3-5-sonnet-latest": {
+          "agentRuntime": {
+            "id": "openclaw"
+          }
+        },
+        "google/gemini-3.5-flash": {
+          "agentRuntime": {
+            "id": "openclaw"
+          }
+        },
+        "ollama/llama3.2": {
+          "agentRuntime": {
+            "id": "openclaw"
+          }
+        }
+      },
+      "memorySearch": {
+        "enabled": false
+      }
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "c49d2de941b0ec6a93e2fd89bf293ee8cd9f8e805cdda2d6"
+    },
+    "port": 18789,
+    "bind": "lan",
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "controlUi": {
+      "allowInsecureAuth": true
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "contacts.add",
+        "calendar.add",
+        "reminders.add",
+        "sms.send",
+        "sms.search"
+      ]
+    }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "tools": {
+    "profile": "coding"
+  },
+  "wizard": {
+    "securityAcknowledgedAt": "2026-07-17T11:03:25.941Z",
+    "lastRunAt": "2026-07-18T13:37:19.865Z",
+    "lastRunVersion": "2026.7.1",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.7.1",
+    "lastTouchedAt": "2026-07-18T13:37:19.960Z"
+  },
+  "plugins": {
+    "entries": {
+      "anthropic": {
+        "enabled": true
+      },
+      "openai": {
+        "enabled": true
+      },
+      "google": {
+        "enabled": true
+      },
+      "ollama": {
+        "enabled": true
+      }
+    }
+  }
+}
