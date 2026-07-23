@@ -67,7 +67,10 @@ const strictLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
+  message: { error: 'Too many requests, please try again later.' },
+  onLimitReached: (req) => {
+    logSecurityEvent('rate_limit_exceeded', req, { limit: 10, windowMs: 60000 });
+  }
 });
 
 // Use helmet for comprehensive security headers (CSP, HSTS, X-Frame, etc.)
@@ -137,6 +140,43 @@ function isPathSafe(resolvedPath) {
 let requestCount = 0;
 const recentErrors = [];
 const MAX_RECENT_ERRORS = 50;
+
+// In-memory map for tracking failed auth attempts per IP
+const failedAuthAttempts = new Map();
+
+// Function to check and record failed auth for an IP
+function checkAuthThrottle(ip) {
+  const now = Date.now();
+  const attempts = failedAuthAttempts.get(ip) || [];
+  // Clean old entries older than 15 minutes
+  const recent = attempts.filter(t => now - t < 900000);
+  if (recent.length >= 5) {
+    return { blocked: true, retryAfter: Math.ceil((recent[0] + 900000 - now) / 1000) };
+  }
+  return { blocked: false };
+}
+
+function recordFailedAuth(ip) {
+  const now = Date.now();
+  const attempts = failedAuthAttempts.get(ip) || [];
+  attempts.push(now);
+  // Keep only last 15 minutes
+  failedAuthAttempts.set(ip, attempts.filter(t => now - t < 900000));
+  logSecurityEvent('auth_failure', { ip }, { totalAttempts: failedAuthAttempts.get(ip).length });
+}
+
+// Security event logger
+function logSecurityEvent(type, req, detail) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    type,
+    ip: req.ip || req.connection?.remoteAddress || 'unknown',
+    method: req.method,
+    path: req.originalUrl || req.url,
+    detail
+  };
+  console.warn('[SECURITY]', JSON.stringify(entry));
+}
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -720,6 +760,24 @@ async function startServer() {
     await execPromise('git --version', { timeout: 5000 });
   } catch {
     console.error('LaunchForge requires git to be installed and in PATH');
+    process.exit(1);
+  }
+
+  // Detect port conflict before binding
+  const portInUse = await new Promise((resolve) => {
+    const tester = require('node:net').createServer();
+    tester.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') resolve(true);
+      else resolve(false);
+    });
+    tester.once('listening', () => {
+      tester.close();
+      resolve(false);
+    });
+    tester.listen(PORT);
+  });
+  if (portInUse) {
+    console.error(`Port ${PORT} is already in use. LaunchForge cannot start.`);
     process.exit(1);
   }
 
