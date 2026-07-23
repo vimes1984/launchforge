@@ -114,6 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadRepository(repoPath) {
     loadedRepoPath = repoPath;
     projectDesc.textContent = 'Analyzing repository...';
+    analyzeBtn.classList.add('loading');
+    analyzeBtn.textContent = 'Analyzing';
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -182,6 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error(err);
       projectDesc.textContent = err.message || 'Analysis failed. Make sure the local path or GitHub URL is correct.';
+    } finally {
+      analyzeBtn.classList.remove('loading');
+      analyzeBtn.textContent = 'Analyze Repo';
     }
   }
 
@@ -386,8 +391,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const val = chatInput.value.trim();
     if (!val) return;
     
+    // Prevent duplicate sends while request is in-flight
+    if (sendChatBtn.disabled) return;
+    sendChatBtn.disabled = true;
+    
     // Add User bubble
     chatHistories[activeAgent].push({ role: 'user', content: val });
+    // Cap history to prevent unbounded memory growth
+    if (chatHistories[activeAgent].length > 100) {
+      chatHistories[activeAgent] = chatHistories[activeAgent].slice(-100);
+    }
     chatInput.value = '';
     renderChat();
     
@@ -402,12 +415,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
+      // Intelligent context window — estimate tokens and trim to fit
+      const MAX_TOKENS = 4000;
+      const estimateTokens = (text) => Math.ceil((text || '').length / 4);
+      let trimmedHistory = [];
+      let tokenCount = 0;
+      const history = chatHistories[activeAgent];
+      for (let i = history.length - 1; i >= 0; i--) {
+        const msg = history[i];
+        const msgTokens = estimateTokens(msg.content);
+        if (tokenCount + msgTokens <= MAX_TOKENS) {
+          trimmedHistory.unshift(msg);
+          tokenCount += msgTokens;
+        } else {
+          break;
+        }
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           agentId: activeAgent,
-          messages: chatHistories[activeAgent].slice(-5) // Send last 5 turns to preserve context window limit
+          messages: trimmedHistory
         }),
         signal: controller.signal
       });
@@ -447,6 +477,9 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
       
+      // Re-enable send button
+      sendChatBtn.disabled = false;
+      
     } catch (err) {
       console.error(err);
       // Remove typing bubble if it still exists
@@ -471,6 +504,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       chatMessages.appendChild(errorBubble);
       chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      // Re-enable send button
+      sendChatBtn.disabled = false;
     }
   }
 
