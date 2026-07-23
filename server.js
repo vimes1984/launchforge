@@ -54,7 +54,7 @@ app.use(helmet({
   contentSecurityPolicy: { directives: cspDirectives },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "same-origin" }
-}));;
+}));
 
 // Request logging middleware (method, path, status, duration)
 app.use((req, res, next) => {
