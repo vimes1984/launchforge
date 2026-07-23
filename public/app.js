@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Analyze Repository
   async function loadRepository(repoPath) {
+    loadedRepoPath = repoPath;
     projectDesc.textContent = 'Analyzing repository...';
     try {
       const response = await fetch('/api/analyze', {
@@ -335,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function saveTasks() {
-    const path = getRepoPath() || currentProject.name || 'default';
+    const path = loadedRepoPath || getRepoPath() || currentProject.name || 'default';
     localStorage.setItem(`launchforge-tasks-${path}`, JSON.stringify(currentProject.tasks));
   }
 

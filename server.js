@@ -117,14 +117,14 @@ app.post('/api/analyze', async (req, res) => {
 
   // Command injection prevention: block shell metacharacters in repoPath
   if (/[;&|`$()]/.test(repoPath)) {
-    return res.status(400).json({ error: "Invalid repoPath: shell metacharacters not allowed" });
+    return res.status(400).json({ error: 'Invalid repoPath: shell metacharacters not allowed' });
   }
 
   // Validate git clone URL format to prevent injection via exec()
   if (repoPath.startsWith("http://") || repoPath.startsWith("https://") || repoPath.startsWith("git@")) {
     const urlPattern = /^(https?:\/\/|git@)[\w.:@\/-]+\.?[\w]+(\/[\w._-]+)*?$/;
     if (!urlPattern.test(repoPath)) {
-      return res.status(400).json({ error: "Invalid git URL format" });
+      return res.status(400).json({ error: 'Invalid git URL format' });
     }
   }
   const isGithubShorthand = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/.test(repoPath) && !existsSync(path.resolve(repoPath));
@@ -142,11 +142,20 @@ app.post('/api/analyze', async (req, res) => {
       defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
 
       try {
-        await execPromise(`git clone --depth 1 "${cloneUrl}" "${tempDir}"`);
+        await execPromise(`git clone --depth 1 "${cloneUrl}" "${tempDir}"`, { timeout: 60000 });
         resolvedPath = tempDir;
         isTemp = true;
       } catch (cloneErr) {
         console.error('Failed to clone repository:', cloneErr);
+        if (cloneErr.killed || cloneErr.code === 'ETIMEDOUT' || cloneErr.signal === 'SIGTERM') {
+          return res.status(408).json({ error: 'Git clone timed out after 60 seconds.' });
+        }
+        if (cloneErr.code === 'ENOENT') {
+          return res.status(500).json({ error: 'Git is not installed or not found in PATH.' });
+        }
+        if (cloneErr.code === 'EACCES' || cloneErr.code === 'EPERM') {
+          return res.status(500).json({ error: 'Permission denied: unable to create temp directory for clone.' });
+        }
         return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
       }
     } else {
