@@ -301,10 +301,25 @@ document.addEventListener('DOMContentLoaded', () => {
     cratePriceVal.textContent = `€${price}`;
     farmSplitVal.textContent = `${farmPct}%`;
     
+    const yearlyVolume = volume * 12;
+    const yearlyFarm = farmVal * 12;
+    const yearlyLogistics = logisticsVal * 12;
+    const yearlyAdmin = adminVal * 12;
+
     totVolume.textContent = formatCurrency.format(volume);
     farmPayout.textContent = formatCurrency.format(farmVal);
     logisticsPayout.textContent = formatCurrency.format(logisticsVal);
     adminPayout.textContent = formatCurrency.format(adminVal);
+
+    // Update yearly projections
+    const yearlyVolumeEl = document.getElementById('yearlyVolume');
+    const yearlyFarmEl = document.getElementById('yearlyFarmPayout');
+    const yearlyLogisticsEl = document.getElementById('yearlyLogisticsPayout');
+    const yearlyAdminEl = document.getElementById('yearlyAdminPayout');
+    if (yearlyVolumeEl) yearlyVolumeEl.textContent = formatCurrency.format(yearlyVolume);
+    if (yearlyFarmEl) yearlyFarmEl.textContent = formatCurrency.format(yearlyFarm);
+    if (yearlyLogisticsEl) yearlyLogisticsEl.textContent = formatCurrency.format(yearlyLogistics);
+    if (yearlyAdminEl) yearlyAdminEl.textContent = formatCurrency.format(yearlyAdmin);
     
     // Update visual bars
     const farmSeg = document.querySelector('.farm-seg');
@@ -644,8 +659,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // Remove typing bubble
       chatMessages.removeChild(typingBubble);
       
-      // Save assistant reply
-      chatHistories[activeAgent].push({ role: 'assistant', content: data.reply, ts: formatTimestamp() });
+      // Save assistant reply — prepend offline indicator if cached
+      const displayReply = data.cached ? data.reply + '\n\n_(Cached response — offline mode)_' : data.reply;
+      chatHistories[activeAgent].push({ role: 'assistant', content: displayReply, ts: formatTimestamp() });
       if (chatHistories[activeAgent].length > 100) {
         chatHistories[activeAgent] = chatHistories[activeAgent].slice(-100);
       }
