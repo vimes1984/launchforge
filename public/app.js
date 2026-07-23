@@ -1219,4 +1219,33 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
   setTimeout(updateOnlineStatus, 500);
+
+  // Global keyboard shortcuts help
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      // Only trigger when not typing in an input
+      const tag = document.activeElement ? document.activeElement.tagName : '';
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+        e.preventDefault();
+        const shortcuts = [
+          ['Ctrl+Enter', 'Send chat message'],
+          ['Escape', 'Close modals / Clear input'],
+          ['?', 'Show this help'],
+          ['Enter (task input)', 'Add task'],
+          ['Double-click task', 'Rename task']
+        ];
+        const html = shortcuts.map(([key, desc]) => `<tr><td><kbd>${key}</kbd></td><td>${desc}</td></tr>`).join('');
+        showConfirmModal('Keyboard Shortcuts', `<table class="shortcuts-table">${html}</table>`,
+          'Got it', 'primary-btn');
+        // Override the confirm button label
+        setTimeout(() => {
+          const confirmBtn = document.getElementById('modalConfirmBtn');
+          if (confirmBtn) {
+            confirmBtn.textContent = 'Got it';
+            confirmBtn.className = 'primary-btn';
+          }
+        }, 50);
+      }
+    }
+  });
 });
