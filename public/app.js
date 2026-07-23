@@ -1015,6 +1015,14 @@ document.addEventListener('DOMContentLoaded', () => {
       addNewTask();
     }
   });
+  
+  const taskCharCounter = document.getElementById('taskCharCounter');
+  if (taskCharCounter) {
+    newTaskInput.addEventListener('input', () => {
+      const remaining = 500 - newTaskInput.value.length;
+      taskCharCounter.textContent = remaining < 50 ? remaining + ' left' : '';
+    });
+  }
 
   // Task search handler
   if (taskSearchInput) {
