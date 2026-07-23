@@ -176,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
     // Wrap list items
     html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+    // Auto-link bare URLs with security attributes
+    html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
     return html;
   }
 
