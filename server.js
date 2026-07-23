@@ -35,6 +35,20 @@ app.use(cors({ origin: corsOriginCheck }));
 // JSON body parsing with size limit
 app.use(express.json({ limit: "1mb" }));
 
+// Trust proxy and set cookie defaults for session security
+app.set("trust proxy", 1);
+app.use((req, res, next) => {
+  // Set SameSite=Lax for all cookies as a baseline
+  const originalSetHeader = res.setHeader.bind(res);
+  res.setHeader = function(name, value) {
+    if (name && name.toLowerCase() === "set-cookie" && typeof value === "string" && !value.includes("SameSite")) {
+      value = value + "; SameSite=Lax";
+    }
+    return originalSetHeader(name, value);
+  };
+  next();
+});
+
 // JSON prototype pollution protection middleware
 app.use((req, res, next) => {
   const blockedKeys = ["__proto__", "constructor", "prototype"];

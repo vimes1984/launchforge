@@ -253,6 +253,12 @@ button {
   min-height: 0; /* Ensures inner overflow scrolls */
 }
 
+@media (max-width: 900px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Panels */
 .panel {
   background: var(--panel-bg);
