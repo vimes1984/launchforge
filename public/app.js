@@ -239,6 +239,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Currency formatter using Intl.NumberFormat
+  const formatCurrency = new Intl.NumberFormat('en-IE', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+
   // Financial calculations
   function renderFinancials() {
     const rawCount = parseInt(crateCount.value, 10);
