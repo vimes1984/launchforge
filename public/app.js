@@ -64,6 +64,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendChatBtn = document.getElementById('sendChatBtn');
   const chatMsgCount = document.getElementById('chatMsgCount');
   const clearChatBtn = document.getElementById('clearChatBtn');
+  const streamToggleBtn = document.getElementById('streamToggleBtn');
+  let streamingEnabled = false;
+
+  if (streamToggleBtn) {
+    streamToggleBtn.addEventListener('click', () => {
+      streamingEnabled = !streamingEnabled;
+      streamToggleBtn.style.opacity = streamingEnabled ? '1' : '0.4';
+      streamToggleBtn.title = streamingEnabled ? 'Streaming ON' : 'Streaming OFF';
+    });
+    streamToggleBtn.title = 'Streaming OFF';
+    streamToggleBtn.style.opacity = '0.4';
+  }
   const gatewayStatusIndicator = document.getElementById('gatewayStatusIndicator');
   const agentTempSlider = document.getElementById('agentTempSlider');
   const agentTempValue = document.getElementById('agentTempValue');
@@ -768,7 +780,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addNewTask() {
     const val = newTaskInput.value.trim();
-    if (!val) return;
+    if (!val || val.length < 2) {
+      if (val.length === 1) {
+        newTaskInput.placeholder = 'Task too short (min 2 chars)';
+        setTimeout(() => { newTaskInput.placeholder = 'Add custom launch task...'; }, 1500);
+      }
+      return;
+    }
     
     const newTask = {
       id: `task-${Date.now()}`,
