@@ -410,6 +410,17 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (task.status === 'done') doneList.appendChild(card);
     });
     
+    // Update task counts in column headers
+    const tasks = filterText
+      ? currentProject.tasks.filter(t => t.title.toLowerCase().includes(filterText))
+      : currentProject.tasks;
+    const todoCount = document.getElementById('todo-count');
+    const progressCount = document.getElementById('progress-count');
+    const doneCount = document.getElementById('done-count');
+    if (todoCount) todoCount.textContent = tasks.filter(t => t.status === 'todo').length;
+    if (progressCount) progressCount.textContent = tasks.filter(t => t.status === 'progress').length;
+    if (doneCount) doneCount.textContent = tasks.filter(t => t.status === 'done').length;
+
     // Show empty state placeholders if no tasks in a column
     if (!todoList.children.length) {
       todoList.appendChild(createEmptyState('No tasks yet. Add one below!'));
