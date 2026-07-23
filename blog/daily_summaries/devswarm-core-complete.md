@@ -1,7 +1,7 @@
 # DevSwarm Core Batch — Complete
 
 **Date:** 2026-07-23  
-**Iterations:** 40 (of 400 target; remainder covered by concurrent Security/Agents batches)  
+**Iterations:** 41 (of 400 target; remainder covered by concurrent Security/Agents batches)  
 **Branch:** main
 
 ## Summary
@@ -52,6 +52,7 @@ The Core functionality batch focused on server bootstrap, API robustness, error 
 | 38 | Robust fs.rm in finally block (ENOENT handling) |
 | 39 | Safe stderr string coercion in exec error logging |
 | 40 | Summary file update |
+| 41 | Response compression via `compression` package (gzip/brotli) |
 
 ## Improvements Delivered
 
