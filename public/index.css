@@ -1031,6 +1031,24 @@ button {
   border-color: var(--accent-color);
 }
 
+/* Light theme support */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-color: hsl(220, 20%, 94%);
+    --panel-bg: hsla(220, 20%, 98%, 0.85);
+    --panel-border: hsla(220, 20%, 80%, 0.5);
+    --primary-glow-dim: hsla(145, 80%, 40%, 0.1);
+    --accent-color: hsl(145, 70%, 30%);
+    --accent-hover: hsl(145, 80%, 25%);
+    --text-primary: hsl(220, 20%, 10%);
+    --text-secondary: hsl(220, 15%, 35%);
+    --text-dim: hsl(220, 10%, 55%);
+    --card-bg: hsla(220, 20%, 96%, 0.8);
+    --input-bg: hsla(220, 30%, 90%, 0.8);
+    --button-hover-bg: hsla(145, 70%, 30%, 0.1);
+  }
+}
+
 /* Reduced motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
   *,
