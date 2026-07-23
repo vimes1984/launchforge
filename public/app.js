@@ -580,6 +580,16 @@ document.addEventListener('DOMContentLoaded', () => {
     animateValue(adminPayout, prevFinancials.admin, adminVal);
     prevFinancials = { volume, farm: farmVal, logistics: logisticsVal, admin: adminVal };
 
+    // Update per-unit economics
+    const unitPriceEl = document.getElementById('unitPrice');
+    const unitFarmEl = document.getElementById('unitFarm');
+    const unitLogisticsEl = document.getElementById('unitLogistics');
+    const unitAdminEl = document.getElementById('unitAdmin');
+    if (unitPriceEl) unitPriceEl.textContent = formatCurrency.format(price);
+    if (unitFarmEl) unitFarmEl.textContent = formatCurrency.format(Math.round(farmVal / (count || 1)));
+    if (unitLogisticsEl) unitLogisticsEl.textContent = formatCurrency.format(Math.round(logisticsVal / (count || 1)));
+    if (unitAdminEl) unitAdminEl.textContent = formatCurrency.format(Math.round(adminVal / (count || 1)));
+
     // Update yearly projections
     const yearlyVolumeEl = document.getElementById('yearlyVolume');
     const yearlyFarmEl = document.getElementById('yearlyFarmPayout');
