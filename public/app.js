@@ -467,6 +467,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTasks();
   });
 
+  // Task search handler
+  if (taskSearchInput) {
+    taskSearchInput.addEventListener('input', () => renderTasks());
+  }
+
   // Agent Chat
   document.querySelectorAll('.agent-btn').forEach(btn => {
     btn.addEventListener('click', () => {
