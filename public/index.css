@@ -1329,6 +1329,19 @@ button {
   }
 }
 
+@media (prefers-contrast: more) {
+  :root {
+    --panel-border: hsla(220, 20%, 40%, 0.8);
+    --text-primary: hsl(210, 20%, 98%);
+    --text-secondary: hsl(210, 15%, 80%);
+    --text-dim: hsl(210, 15%, 70%);
+    --accent-color: hsl(145, 90%, 35%);
+    --accent-hover: hsl(145, 100%, 45%);
+    --card-bg: hsla(220, 20%, 15%, 0.9);
+    --input-bg: hsla(220, 30%, 8%, 0.8);
+  }
+}
+
 /* Modal overlay */
 .modal-overlay {
   position: fixed;
