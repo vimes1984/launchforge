@@ -642,6 +642,11 @@ button {
   background: hsla(220, 20%, 8%, 0.6);
 }
 
+.accordion-item:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 15px var(--primary-glow-dim);
+}
+
 .accordion-header {
   display: flex;
   justify-content: space-between;

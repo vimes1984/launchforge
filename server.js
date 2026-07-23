@@ -50,6 +50,13 @@ const cspDirectives = {
   connectSrc: ["'self'"],
   frameAncestors: ["'none'"]
 };
+// Additional security headers (Referrer-Policy, Permissions-Policy)
+app.use((req, res, next) => {
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
+  next();
+});
+
 app.disable("x-powered-by");
 app.use(helmet({
   contentSecurityPolicy: { directives: cspDirectives },
