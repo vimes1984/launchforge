@@ -90,7 +90,7 @@ body {
 .app-container {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: clamp(1rem, 3vw, 2rem);
   display: flex;
   flex-direction: column;
   height: 100vh;
