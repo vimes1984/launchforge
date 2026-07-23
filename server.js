@@ -294,6 +294,23 @@ app.post('/api/analyze', async (req, res) => {
   let tempDir = '';
   let defaultProjectName = '';
 
+  // Directory traversal encoding bypass detection (URL-encoded, double-encoded)
+  const decodedPath = (() => { try { return decodeURIComponent(repoPath); } catch { return repoPath; } })();
+  const doubleDecoded = (() => { try { return decodeURIComponent(decodedPath); } catch { return decodedPath; } })();
+
+  // Check all decoded forms for path traversal patterns
+  for (const decoded of [repoPath, decodedPath, doubleDecoded]) {
+    if (typeof decoded !== 'string') continue;
+    // Check for ../ or ..\ patterns — reject any encoded traversal attempt
+    if (/\.\.(\/|\\)/.test(decoded)) {
+      return res.status(400).json({ error: 'Invalid repoPath: path traversal encoding detected' });
+    }
+    // Block paths starting with .. (relative escape attempts)
+    if (decoded.startsWith('..')) {
+      return res.status(400).json({ error: 'Invalid repoPath: path traversal detected' });
+    }
+  }
+
   // Command injection prevention: block shell metacharacters in repoPath
   if (/[;&|`$()]/.test(repoPath)) {
     return res.status(400).json({ error: 'Invalid repoPath: shell metacharacters not allowed' });
@@ -315,8 +332,59 @@ app.post('/api/analyze', async (req, res) => {
       if (isGithubShorthand) {
         cloneUrl = `https://github.com/${repoPath}.git`;
       }
-      tempDir = path.join(os.tmpdir(), `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
-      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });      // Create temp directory with restricted permissions (owner-only)      
+
+      // Dedup concurrent clones to same URL: share the in-flight promise
+      const normalizedUrl = cloneUrl.replace(/\.git$/, '').toLowerCase();
+      if (inFlightClones.has(normalizedUrl)) {
+        console.log(`Reusing in-flight clone for: ${normalizedUrl}`);
+        try {
+          const cachedResult = await inFlightClones.get(normalizedUrl);
+          resolvedPath = cachedResult.path;
+          isTemp = true;
+          defaultProjectName = cachedResult.name;
+          tempDir = cachedResult.path;
+          // Skip to file parsing (no need to re-clone)
+          return parseAndRespond(res, resolvedPath, defaultProjectName, tempDir, isTemp);
+        } catch {
+          // If cached clone failed, fall through to try again
+        }
+      }
+
+      const clonePromise = (async () => {
+        const dir = path.join(TEMP_DIR, `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+        await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+        const cleanP = repoPath.replace(/\.git$/, '');
+        const name = cleanP.split('/').pop() || 'Git Project';
+        await execPromise(`git clone --depth 1 "${cloneUrl}" "${dir}"`, { timeout: 60000 });
+        try { await fs.chmod(dir, 0o700); } catch(e) { console.warn("Failed to chmod temp dir:", e); }
+        return { path: dir, name };
+      })();
+
+      inFlightClones.set(normalizedUrl, clonePromise);
+      clonePromise.finally(() => {
+        inFlightClones.delete(normalizedUrl);
+      });
+
+      try {
+        const result = await clonePromise;
+        resolvedPath = result.path;
+        tempDir = result.path;
+        isTemp = true;
+        defaultProjectName = result.name;
+      } catch (cloneErr) {
+        inFlightClones.delete(normalizedUrl);
+        console.error('Failed to clone repository:', cloneErr);
+        if (cloneErr.killed || cloneErr.code === 'ETIMEDOUT' || cloneErr.signal === 'SIGTERM') {
+          return res.status(408).json({ error: 'Git clone timed out after 60 seconds.' });
+        }
+        if (cloneErr.code === 'ENOENT') {
+          return res.status(500).json({ error: 'Git is not installed or not found in PATH.' });
+        }
+        if (cloneErr.code === 'EACCES' || cloneErr.code === 'EPERM') {
+          return res.status(500).json({ error: 'Permission denied: unable to create temp directory for clone.' });
+        }
+        return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
+      }      // Create temp directory with restricted permissions (owner-only)      
       const cleanPath = repoPath.replace(/\.git$/, '');
       defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
 
@@ -720,7 +788,16 @@ Structure your replies using Markdown with clear sections. Keep answers practica
     conversation.messages.push({ role: 'assistant', content: reply });
     conversation.messageCount++;
 
-    res.json({ reply, conversationId: convId, messageCount: conversation.messageCount });
+    // Cache response for graceful degradation when gateway is down
+    const cacheKey = `${agentId || 'default'}:${messages[messages.length - 1]?.content?.slice(0, 100) || ''}`;
+    responseCache.set(cacheKey, { reply, timestamp: Date.now() });
+    // Limit cache size
+    if (responseCache.size > 100) {
+      const oldestKey = responseCache.keys().next().value;
+      responseCache.delete(oldestKey);
+    }
+
+    res.json({ reply, conversationId: convId, messageCount: conversation.messageCount, cached: false });
   } catch (err) {
     recordCircuitFailure();
     console.error('Agent chat error:', err);
