@@ -6,12 +6,18 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "prestart": "npm audit --audit-level=moderate || true"
+    "prestart": "npm audit --audit-level=moderate || true",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:outdated": "npm outdated --long",
+    "security:ci": "npm audit --audit-level=high || true"
   },
   "dependencies": {
     "cors": "2.8.5",
     "express": "4.19.2",
     "express-rate-limit": "8.6.0",
     "helmet": "8.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
