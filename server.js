@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import fs from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
@@ -203,6 +203,16 @@ app.post('/api/analyze', async (req, res) => {
         return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
       }
     } else {
+      // Symlink protection: reject symlinked directories (prevents symlink-based traversal)
+      try {
+        const stat = fslib.statSync(absolutePath);
+        if (stat.isSymbolicLink()) {
+          return res.status(400).json({ error: "Invalid repoPath: symlinked directories are not allowed" });
+        }
+      } catch (e) {
+        return res.status(400).json({ error: "Cannot access directory" });
+      }
+
       // Resolve path and validate it stays within workspace (prevent traversal)
       const absolutePath = path.resolve(repoPath);
       if (!isPathSafe(absolutePath)) {
