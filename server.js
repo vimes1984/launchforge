@@ -474,7 +474,9 @@ Structure your replies using Markdown with clear sections. Keep answers practica
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages
-      ]
+      ],
+      metadata: agentMeta,
+      user: agentMeta.agent_id
     };
 
     const controller = new AbortController();
