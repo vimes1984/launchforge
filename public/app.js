@@ -278,6 +278,25 @@ document.addEventListener('DOMContentLoaded', () => {
     maximumFractionDigits: 0
   });
 
+  // Smooth number animation helper
+  function animateValue(el, start, end, duration = 400) {
+    const startTime = performance.now();
+    function step(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(start + (end - start) * eased);
+      el.textContent = formatCurrency.format(current);
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Store previous financial values for animation
+  let prevFinancials = { volume: 0, farm: 0, logistics: 0, admin: 0 };
+
   // Financial calculations
   function renderFinancials() {
     const rawCount = parseInt(crateCount.value, 10);
@@ -306,10 +325,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const yearlyLogistics = logisticsVal * 12;
     const yearlyAdmin = adminVal * 12;
 
-    totVolume.textContent = formatCurrency.format(volume);
-    farmPayout.textContent = formatCurrency.format(farmVal);
-    logisticsPayout.textContent = formatCurrency.format(logisticsVal);
-    adminPayout.textContent = formatCurrency.format(adminVal);
+    animateValue(totVolume, prevFinancials.volume, volume);
+    animateValue(farmPayout, prevFinancials.farm, farmVal);
+    animateValue(logisticsPayout, prevFinancials.logistics, logisticsVal);
+    animateValue(adminPayout, prevFinancials.admin, adminVal);
+    prevFinancials = { volume, farm: farmVal, logistics: logisticsVal, admin: adminVal };
 
     // Update yearly projections
     const yearlyVolumeEl = document.getElementById('yearlyVolume');
@@ -739,10 +759,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   sendChatBtn.addEventListener('click', sendChatMessage);
+  // Auto-resize chat textarea as content grows
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
+  });
+
   chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendChatMessage();
+      // Reset height after send
+      chatInput.style.height = 'auto';
     } else if (e.key === 'Escape') {
       e.preventDefault();
       chatInput.value = '';
