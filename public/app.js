@@ -294,6 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const leftBtn = document.createElement('button');
         leftBtn.className = 'task-ctrl-btn';
         leftBtn.type = 'button';
+        leftBtn.title = 'Move to previous column';
+        leftBtn.setAttribute('aria-label', 'Move task to previous status column');
         leftBtn.textContent = '◀';
         leftBtn.addEventListener('click', () => moveTask(task.id, getPrevStatus(task.status)));
         controls.appendChild(leftBtn);
@@ -303,6 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const rightBtn = document.createElement('button');
         rightBtn.className = 'task-ctrl-btn';
         rightBtn.type = 'button';
+        rightBtn.title = 'Move to next column';
+        rightBtn.setAttribute('aria-label', 'Move task to next status column');
         rightBtn.textContent = '➔';
         rightBtn.addEventListener('click', () => moveTask(task.id, getNextStatus(task.status)));
         controls.appendChild(rightBtn);
@@ -311,6 +315,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const delBtn = document.createElement('button');
       delBtn.className = 'task-ctrl-btn';
       delBtn.type = 'button';
+      delBtn.title = 'Delete task';
+      delBtn.setAttribute('aria-label', 'Delete this task');
       delBtn.textContent = '🗑️';
       delBtn.addEventListener('click', () => deleteTask(task.id));
       controls.appendChild(delBtn);
