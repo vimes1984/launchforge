@@ -790,6 +790,18 @@ button {
   gap: 0.75rem;
 }
 
+.task-list:empty::after {
+  content: 'No tasks yet';
+  display: block;
+  text-align: center;
+  padding: 2rem 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-style: italic;
+  border: 1px dashed var(--panel-border);
+  border-radius: 8px;
+}
+
 .task-card {
   background: var(--card-bg);
   border: 1px solid var(--panel-border);
