@@ -1311,6 +1311,55 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('offline', updateOnlineStatus);
   setTimeout(updateOnlineStatus, 500);
 
+  // Export project data as JSON
+  document.getElementById('exportDataBtn')?.addEventListener('click', () => {
+    const data = {
+      project: currentProject,
+      chatHistories,
+      activeAgent,
+      loadedRepoPath,
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `launchforge-${currentProject.name || 'project'}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Project data exported', 2000);
+  });
+
+  // Import project data from JSON
+  document.getElementById('importDataBtn')?.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const data = JSON.parse(evt.target.result);
+          if (data.project) currentProject = data.project;
+          if (data.chatHistories) chatHistories = data.chatHistories;
+          if (data.activeAgent) activeAgent = data.activeAgent;
+          if (data.loadedRepoPath) loadedRepoPath = data.loadedRepoPath;
+          renderFinancials();
+          renderTasks();
+          renderChat();
+          showToast('Project data imported successfully', 3000);
+        } catch (err) {
+          console.error('Import failed:', err);
+          showToast('Failed to import: invalid JSON file', 4000);
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
+  });
+
   // Theme toggle (dark/light)
   const themeToggle = document.getElementById('themeToggleBtn');
   const savedTheme = localStorage.getItem('launchforge-theme');

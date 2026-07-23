@@ -36,8 +36,11 @@
         <span class="status-dot" id="statusDot" title="Gateway status"></span>
         <span class="header-clock" id="headerClock"></span>
         <button id="themeToggleBtn" class="theme-toggle-btn" type="button" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">🌓</button>
+        <button id="exportDataBtn" class="theme-toggle-btn" type="button" title="Export project data as JSON" aria-label="Export data">📤</button>
+        <button id="importDataBtn" class="theme-toggle-btn" type="button" title="Import project data from JSON file" aria-label="Import data">📥</button>
       </div>
     </header>
+    <div class="error-banner hidden" id="errorBanner" role="alert"></div>
     <div class="progress-bar-container hidden" id="progressBarContainer">
       <div class="progress-bar-outer">
         <div class="progress-bar-inner" id="progressBarInner"></div>
