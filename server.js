@@ -701,7 +701,7 @@ app.get('/api/agent/templates', (req, res) => {
 
 // Multi-agent consolidation endpoint — queries multiple agents and merges responses
 app.post('/api/chat/consolidate', async (req, res) => {
-  const { agents, message, conversationId, language } = req.body;
+  const { agents, message, conversationId, language, customPrompt } = req.body;
   if (!agents || !Array.isArray(agents) || agents.length < 2) {
     return res.status(400).json({ error: 'agents must be an array with at least 2 agent IDs' });
   }
@@ -712,7 +712,7 @@ app.post('/api/chat/consolidate', async (req, res) => {
   try {
     const results = [];
     for (const agentId of agents) {
-      const systemPrompt = buildSystemPrompt(agentId, language);
+      const systemPrompt = buildSystemPrompt(agentId, language, customPrompt);
       const agentMeta = buildAgentMeta(agentId);
 
       const gatewayConfig = await getOpenClawConfig();
@@ -793,7 +793,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
   }
 
-  const systemPrompt = buildSystemPrompt(agentId, language);
+  const systemPrompt = buildSystemPrompt(agentId, language, customPrompt);
   const agentMeta = buildAgentMeta(agentId);
 
   try {
@@ -876,7 +876,7 @@ app.post('/api/chat/stream', async (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { agentId, messages, conversationId, temperature, maxTokens, model, language } = req.body;
+  const { agentId, messages, conversationId, temperature, maxTokens, model, language, customPrompt } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
   }
@@ -927,7 +927,7 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: `agentId must be one of: ${VALID_AGENTS.join(', ')} or empty` });
   }
 
-  const systemPrompt = buildSystemPrompt(agentId, language);
+  const systemPrompt = buildSystemPrompt(agentId, language, customPrompt);
   const agentMeta = buildAgentMeta(agentId);
 
   try {

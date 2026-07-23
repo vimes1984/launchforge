@@ -56,7 +56,10 @@
             <h2 id="projectTitle">Coop-Harvest</h2>
             <p id="projectDesc">Loading repository strategy...</p>
           </div>
-          <span class="status-badge" id="planBadge">Custom Plan Loaded</span>
+          <div class="banner-actions">
+            <span class="status-badge" id="planBadge">Custom Plan Loaded</span>
+            <button class="fullscreen-btn" id="fsLeftPanel" type="button" title="Toggle fullscreen">⛶</button>
+          </div>
         </div>
 
         <div class="tab-container">
@@ -225,7 +228,7 @@
       </section>
 
       <!-- Right Panel: Kanban & Agent Chat -->
-      <section class="panel right-panel" aria-label="Launch checklist and agent chat">
+      <section class="panel right-panel" aria-label="Launch checklist and agent chat" id="rightPanel">
         <div class="accordion-section">
           <!-- Kanban Tasks Section -->
           <div class="accordion-item" id="accordion-kanban">

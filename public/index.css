@@ -408,6 +408,28 @@ button {
   flex-direction: column;
   min-height: 0;
   animation: panelFadeIn 0.5s ease-out;
+  position: relative;
+}
+
+.panel.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  border-radius: 0;
+  padding: 2rem;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.panel.fullscreen .tab-contents {
+  max-height: none;
+}
+
+.panel.fullscreen .kanban-board {
+  max-height: 60vh;
 }
 
 .left-panel {
