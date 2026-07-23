@@ -1025,6 +1025,22 @@ document.addEventListener('DOMContentLoaded', () => {
     followUpSuggestions.style.display = 'block';
   }
 
+  // Custom system prompt editor
+  const editPromptBtn = document.getElementById('editPromptBtn');
+  if (editPromptBtn) {
+    editPromptBtn.addEventListener('click', () => {
+      const currentPrompt = localStorage.getItem(`launchforge-prompt-${activeAgent}`) || '';
+      const customPrompt = prompt('Edit system prompt for ' + activeAgent + ':', currentPrompt);
+      if (customPrompt !== null) {
+        if (customPrompt.trim()) {
+          localStorage.setItem(`launchforge-prompt-${activeAgent}`, customPrompt.trim());
+        } else {
+          localStorage.removeItem(`launchforge-prompt-${activeAgent}`);
+        }
+      }
+    });
+  }
+
   // Clear conversation handler
   if (clearChatBtn) {
     clearChatBtn.addEventListener('click', () => {
@@ -1096,7 +1112,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add Assistant Typing bubble
     const typingBubble = document.createElement('div');
     typingBubble.className = 'message assistant typing';
-    typingBubble.textContent = 'Thinking...';
+    const agentLabel = document.querySelector(`.agent-btn[data-agent="${activeAgent}"] .agent-name`);
+    const agentName = agentLabel ? agentLabel.textContent.trim() : activeAgent;
+    typingBubble.textContent = `${agentName} is thinking...`;
     chatMessages.appendChild(typingBubble);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
