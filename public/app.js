@@ -337,6 +337,24 @@ document.addEventListener('DOMContentLoaded', () => {
     maximumFractionDigits: 0
   });
 
+  // Progress bar helper
+  function setProgress(pct, label) {
+    const container = document.getElementById('progressBarContainer');
+    const inner = document.getElementById('progressBarInner');
+    const labelEl = document.getElementById('progressBarLabel');
+    if (!container || !inner || !labelEl) return;
+    container.classList.remove('hidden');
+    inner.style.width = `${Math.min(pct, 100)}%`;
+    if (label) labelEl.textContent = label;
+  }
+
+  function hideProgress() {
+    const container = document.getElementById('progressBarContainer');
+    const inner = document.getElementById('progressBarInner');
+    if (container) container.classList.add('hidden');
+    if (inner) inner.style.width = '0%';
+  }
+
   // Toast notification helper
   function showToast(message, duration = 3000) {
     const container = document.getElementById('toastContainer');
