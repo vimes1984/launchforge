@@ -50,7 +50,7 @@
 
     <main class="main-layout" id="main-content">
       <!-- Left Panel: Workspace Tabs -->
-      <section class="panel left-panel" aria-label="Workspace tabs and project details">
+      <section class="panel left-panel" aria-label="Workspace tabs and project details" id="leftPanel">
         <div class="project-info-banner">
           <div class="project-meta">
             <h2 id="projectTitle">Coop-Harvest</h2>
@@ -158,6 +158,27 @@
                   
                   <div class="export-bar">
                     <button id="exportCSVBtn" class="sec-btn" type="button" title="Download financial data as CSV">📥 Export CSV</button>
+                  </div>
+                  <div class="results-section per-unit-section">
+                    <h4>Per-Unit Economics (per crate)</h4>
+                    <div class="results-grid">
+                      <div class="res-card highlighted">
+                        <p>Price</p>
+                        <h4 id="unitPrice">€25</h4>
+                      </div>
+                      <div class="res-card">
+                        <p>Farm Share</p>
+                        <h4 id="unitFarm" class="text-green"></h4>
+                      </div>
+                      <div class="res-card">
+                        <p>Logistics Share</p>
+                        <h4 id="unitLogistics"></h4>
+                      </div>
+                      <div class="res-card">
+                        <p>Admin Share</p>
+                        <h4 id="unitAdmin"></h4>
+                      </div>
+                    </div>
                   </div>
                   <div class="visual-split-bar">
                     <div class="split-segment farm-seg" style="width: 82%;">Farm</div>
