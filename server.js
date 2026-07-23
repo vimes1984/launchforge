@@ -50,6 +50,7 @@ const cspDirectives = {
   connectSrc: ["'self'"],
   frameAncestors: ["'none'"]
 };
+app.disable("x-powered-by");
 app.use(helmet({
   contentSecurityPolicy: { directives: cspDirectives },
   crossOriginEmbedderPolicy: false,
