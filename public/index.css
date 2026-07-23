@@ -1489,3 +1489,55 @@ button {
     scroll-behavior: auto !important;
   }
 }
+
+/* Print-friendly styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .glass-bg,
+  .glow-spot,
+  .repo-selector,
+  .app-header button,
+  .copy-btn,
+  .task-ctrl-btn,
+  .add-task-form,
+  .chat-input-area,
+  .chat-console,
+  .agent-selector-buttons,
+  .progress-bar-container,
+  .toast-container,
+  .modal-overlay,
+  .status-dot,
+  .header-clock {
+    display: none !important;
+  }
+  .app-container {
+    height: auto;
+    max-width: 100%;
+    padding: 0;
+  }
+  .app-header {
+    background: white !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+  }
+  .main-layout {
+    display: block;
+  }
+  .panel {
+    background: white !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    margin-bottom: 1rem;
+    page-break-inside: avoid;
+  }
+  .accordion-content {
+    max-height: none !important;
+    opacity: 1 !important;
+    display: flex !important;
+    padding: 1.2rem !important;
+    border-top-color: #ccc !important;
+  }
+}
