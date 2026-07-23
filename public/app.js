@@ -473,6 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Save assistant reply
       chatHistories[activeAgent].push({ role: 'assistant', content: data.reply });
+      if (chatHistories[activeAgent].length > 100) {
+        chatHistories[activeAgent] = chatHistories[activeAgent].slice(-100);
+      }
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
       localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
