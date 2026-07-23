@@ -420,6 +420,9 @@ app.post('/api/chat', async (req, res) => {
     if (!msg || typeof msg !== 'object' || !msg.role || !msg.content) {
       return res.status(400).json({ error: 'Each message must have role and content properties' });
     }
+    if (msg.content && msg.content.length > 10240) {
+      return res.status(400).json({ error: 'Message content exceeds maximum length of 10KB' });
+    }
   }
 
   // Prompt injection detection — reject attempts to override system prompt
@@ -587,12 +590,21 @@ app.use(express.static(path.join(path.resolve(), 'public')));
 
 // Global error handling middleware (must be last)
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', {
+  const errorInfo = {
     message: err.message,
-    stack: err.stack?.split('').slice(0, 5).join(''),
+    stack: err.stack?.split('\n').slice(0, 5).join('\n'),
     method: req.method,
-    path: req.path
-  });
+    path: req.path,
+    time: new Date().toISOString()
+  };
+  console.error('Unhandled error:', errorInfo);
+
+  // Track recent errors in memory
+  recentErrors.push(errorInfo);
+  if (recentErrors.length > MAX_RECENT_ERRORS) {
+    recentErrors.shift();
+  }
+
   res.status(500).json({ error: 'Internal server error' });
 });
 
