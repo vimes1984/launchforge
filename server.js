@@ -133,8 +133,16 @@ async function getOpenClawConfig() {
   return { port: 18789, token: '' };
 }
 
-// Simple helper to safely read markdown files
+// Read markdown files, skipping hidden/dotfile paths for security
 async function tryReadFile(filePath) {
+  // Prevent reading hidden files or files in hidden directories
+  const normalizedPath = path.normalize(filePath);
+  const segments = normalizedPath.split(path.sep);
+  for (const seg of segments) {
+    if (seg.startsWith(".")) {
+      return '';
+    }
+  }
   try {
     if (existsSync(filePath)) {
       return await fs.readFile(filePath, 'utf8');
