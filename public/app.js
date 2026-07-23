@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendChatBtn = document.getElementById('sendChatBtn');
   const chatMsgCount = document.getElementById('chatMsgCount');
   const clearChatBtn = document.getElementById('clearChatBtn');
+  const gatewayStatusIndicator = document.getElementById('gatewayStatusIndicator');
   const followUpSuggestions = document.getElementById('followUpSuggestions');
   const followUpButtons = document.getElementById('followUpButtons');
 
@@ -482,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(`launchforge-tasks-${path}`, JSON.stringify(currentProject.tasks));
   }
 
-  addTaskBtn.addEventListener('click', () => {
+  function addNewTask() {
     const val = newTaskInput.value.trim();
     if (!val) return;
     
@@ -496,6 +497,14 @@ document.addEventListener('DOMContentLoaded', () => {
     newTaskInput.value = '';
     saveTasks();
     renderTasks();
+  }
+
+  addTaskBtn.addEventListener('click', addNewTask);
+  newTaskInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addNewTask();
+    }
   });
 
   // Task search handler
