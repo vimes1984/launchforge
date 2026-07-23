@@ -216,13 +216,17 @@ document.addEventListener('DOMContentLoaded', () => {
       b.classList.remove('active');
       b.setAttribute('aria-selected', 'false');
     });
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => {
+      p.classList.remove('active');
+      p.setAttribute('aria-hidden', 'true');
+    });
     
     btn.classList.add('active');
     btn.setAttribute('aria-selected', 'true');
     const tabId = btn.getAttribute('data-tab');
     const pane = document.getElementById(`tab-${tabId}`);
     pane.classList.add('active');
+    pane.setAttribute('aria-hidden', 'false');
     // Fade in the new tab content
     pane.style.opacity = '0';
     requestAnimationFrame(() => {
