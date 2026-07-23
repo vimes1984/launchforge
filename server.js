@@ -58,6 +58,16 @@ app.use((req, res, next) => {
 });
 
 app.disable("x-powered-by");
+// Host header validation to prevent host injection attacks
+app.use((req, res, next) => {
+  const host = req.headers['host'] || '';
+  // Allow only valid hostnames (alphanumeric, dots, ports)
+  if (host && !/^[\w.:-]+$/.test(host)) {
+    return res.status(400).json({ error: 'Invalid Host header' });
+  }
+  next();
+});
+
 app.use(helmet({
   contentSecurityPolicy: { directives: cspDirectives },
   crossOriginEmbedderPolicy: false,
