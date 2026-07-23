@@ -1,2 +1,16 @@
 node_modules/
 .DS_Store
+
+# Environment variables (contain secrets)
+.env
+
+# npm audit advisory config (developer-specific)
+.nsprc
+
+# Temp files
+*.tmp
+*.swp
+*.log
+
+# OS files
+Thumbs.db
