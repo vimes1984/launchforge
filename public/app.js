@@ -794,6 +794,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Task search handler
   if (taskSearchInput) {
     taskSearchInput.addEventListener('input', () => renderTasks());
+    taskSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        taskSearchInput.value = '';
+        taskSearchInput.blur();
+        renderTasks();
+      }
+    });
   }
 
   // Agent Chat
