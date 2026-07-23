@@ -40,14 +40,21 @@ const strictLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// Security response headers
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '0');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  next();
-});
+// Use helmet for comprehensive security headers (CSP, HSTS, X-Frame, etc.)
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'", "https://fonts.googleapis.com"],
+  styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+  fontSrc: ["'self'", "https://fonts.gstatic.com"],
+  imgSrc: ["'self'", "data:", "https:"],
+  connectSrc: ["'self'"],
+  frameAncestors: ["'none'"]
+};
+app.use(helmet({
+  contentSecurityPolicy: { directives: cspDirectives },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "same-origin" }
+}));;
 
 // Request logging middleware (method, path, status, duration)
 app.use((req, res, next) => {
@@ -296,6 +303,10 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
       return response;
     } catch (err) {
       lastError = err;
+      // Don't retry on connection refused — gateway isn't running
+      if (err.cause && (err.cause.code === 'ECONNREFUSED' || err.cause.code === 'ECONNRESET')) {
+        throw err;
+      }
       if (attempt < maxRetries) {
         const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 500, 15000);
         console.warn(`Gateway fetch attempt ${attempt + 1} failed, retrying in ${Math.round(backoffMs)}ms: ${err.message}`);
@@ -421,7 +432,6 @@ app.post('/api/chat', async (req, res) => {
     });
 
     clearTimeout(timeoutId);
-    recordCircuitSuccess();
 
     if (!response.ok) {
       recordCircuitFailure();
@@ -461,6 +471,12 @@ app.post('/api/chat', async (req, res) => {
     console.error('Agent chat error:', err);
     if (err.name === 'AbortError') {
       return res.status(504).json({ error: 'Gateway request timed out after 30 seconds.' });
+    }
+    if (err.cause && (err.cause.code === 'ECONNREFUSED' || err.cause.errno === 'ECONNREFUSED')) {
+      return res.status(502).json({ error: 'OpenClaw gateway is not running or unreachable. Please start the gateway and try again.' });
+    }
+    if (err.cause && (err.cause.code === 'ECONNRESET' || err.cause.code === 'ERR_NETWORK')) {
+      return res.status(502).json({ error: 'Network error: connection to OpenClaw gateway was reset.' });
     }
     res.status(500).json({ error: 'Failed to communicate with local OpenClaw gateway.' });
   }
