@@ -334,7 +334,10 @@ app.post('/api/analyze', async (req, res) => {
         // Restrict temp directory permissions to owner-only
         try { await fs.chmod(tempDir, 0o700); } catch(e) { console.warn("Failed to chmod temp dir:", e); }
       } catch (cloneErr) {
-        console.error('Failed to clone repository:', cloneErr);
+        console.error('Failed to clone repository:', cloneErr.message);
+        if (cloneErr.stderr) {
+          console.error('Git stderr:', cloneErr.stderr.slice(0, 500));
+        }
         if (cloneErr.killed || cloneErr.code === 'ETIMEDOUT' || cloneErr.signal === 'SIGTERM') {
           return res.status(408).json({ error: 'Git clone timed out after 60 seconds.' });
         }
@@ -756,6 +759,17 @@ Structure your replies using Markdown with clear sections. Keep answers practica
     conversation.messages.push({ role: 'assistant', content: reply });
     conversation.messageCount++;
 
+    // Extract action items from agent response — lines starting with - [ ] or actionable items
+    const actionItems = [];
+    const actionRegex = /^[-*]\s*(?:\[\s*\]\s*)?(.+)$/gm;
+    let actionMatch;
+    while ((actionMatch = actionRegex.exec(reply)) !== null) {
+      const item = actionMatch[1].trim();
+      if (item && item.length > 5 && item.length < 200) {
+        actionItems.push({ title: item, done: false });
+      }
+    }
+
     // Cache response for graceful degradation when gateway is down
     const cacheKey = `${agentId || 'default'}:${messages[messages.length - 1]?.content?.slice(0, 100) || ''}`;
     responseCache.set(cacheKey, { reply, timestamp: Date.now() });
@@ -764,7 +778,7 @@ Structure your replies using Markdown with clear sections. Keep answers practica
       responseCache.delete(oldestKey);
     }
 
-    res.json({ reply, conversationId: convId, messageCount: conversation.messageCount, cached: false });
+    res.json({ reply, conversationId: convId, messageCount: conversation.messageCount, cached: false, actionItems });
   } catch (err) {
     recordCircuitFailure();
     console.error('Agent chat error:', err);

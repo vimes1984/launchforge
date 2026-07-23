@@ -922,6 +922,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         saveTasks();
         renderTasks();
+        // Brief notification via status indicator
+        const count = data.actionItems.length;
+        const notif = document.createElement('div');
+        notif.className = 'message system';
+        notif.textContent = `📋 Added ${count} action item${count !== 1 ? 's' : ''} to kanban.`;
+        notif.style.fontSize = '0.75rem';
+        notif.style.padding = '0.4rem 0.8rem';
+        chatMessages.appendChild(notif);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        setTimeout(() => { if (notif.parentNode) notif.remove(); }, 4000);
       }
 
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
