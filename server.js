@@ -32,6 +32,22 @@ function corsOriginCheck(origin, cb) {
 }
 app.use(cors({ origin: corsOriginCheck }));
 
+// JSON body parsing with size limit
+app.use(express.json({ limit: "1mb" }));
+
+// JSON prototype pollution protection middleware
+app.use((req, res, next) => {
+  const blockedKeys = ["__proto__", "constructor", "prototype"];
+  if (req.body && typeof req.body === "object" && !Array.isArray(req.body)) {
+    for (const key of Object.keys(req.body)) {
+      if (blockedKeys.includes(key)) {
+        return res.status(400).json({ error: "Invalid request: protected key detected" });
+      }
+    }
+  }
+  next();
+});
+
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
