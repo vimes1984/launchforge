@@ -390,6 +390,39 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'task-card';
       card.textContent = task.title;
+      card.title = 'Double-click to rename';
+      
+      // Double-click to rename task
+      card.addEventListener('dblclick', () => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'task-rename-input';
+        input.value = task.title;
+        card.textContent = '';
+        card.appendChild(input);
+        input.focus();
+        input.select();
+        
+        function finishRename() {
+          const newTitle = input.value.trim();
+          if (newTitle && newTitle !== task.title) {
+            task.title = newTitle;
+            saveTasks();
+          }
+          renderTasks();
+        }
+        
+        input.addEventListener('blur', finishRename);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+          } else if (e.key === 'Escape') {
+            input.value = task.title;
+            input.blur();
+          }
+        });
+      });
       
       const controls = document.createElement('div');
       controls.className = 'task-controls';
@@ -620,6 +653,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Gateway connection health state
+  let gatewayStatus = 'unknown';
+
+  async function checkGatewayHealth() {
+    try {
+      const healthResp = await fetch('/api/gateway/health');
+      if (healthResp.ok) {
+        const healthData = await healthResp.json();
+        gatewayStatus = healthData.status || 'unknown';
+        updateGatewayStatusUI();
+        return healthData.status === 'ok';
+      }
+    } catch {}
+    gatewayStatus = 'unreachable';
+    updateGatewayStatusUI();
+    return false;
+  }
+
+  function updateGatewayStatusUI() {
+    if (!gatewayStatusIndicator) return;
+    gatewayStatusIndicator.className = 'gateway-status-indicator status-' + gatewayStatus;
+    const titles = {
+      ok: 'Gateway connected',
+      degraded: 'Gateway degraded (circuit open)',
+      unreachable: 'Gateway unreachable'
+    };
+    gatewayStatusIndicator.title = titles[gatewayStatus] || 'Status unknown';
+  }
+
+  // Initial health check on startup
+  setTimeout(checkGatewayHealth, 1000);
+
   async function sendChatMessage() {
     const val = chatInput.value.trim();
     if (!val) return;
@@ -627,6 +692,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Prevent duplicate sends while request is in-flight
     if (sendChatBtn.disabled) return;
     sendChatBtn.disabled = true;
+    
+    // Fire off a health check
+    checkGatewayHealth().catch(() => {});
     
     // Add User bubble
     chatHistories[activeAgent].push({ role: 'user', content: val, ts: formatTimestamp() });
@@ -706,6 +774,10 @@ document.addEventListener('DOMContentLoaded', () => {
       chatMessages.removeChild(typingBubble);
       
       // Save assistant reply — prepend offline indicator if cached
+      // Update gateway status on successful reply
+      gatewayStatus = data.cached ? 'degraded' : 'ok';
+      updateGatewayStatusUI();
+
       const displayReply = data.cached ? data.reply + '\n\n_(Cached response — offline mode)_' : data.reply;
       chatHistories[activeAgent].push({ role: 'assistant', content: displayReply, ts: formatTimestamp() });
       if (chatHistories[activeAgent].length > 100) {
