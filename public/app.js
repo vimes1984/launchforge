@@ -975,7 +975,10 @@ document.addEventListener('DOMContentLoaded', () => {
     chatMessages.innerHTML = '';
     const history = chatHistories[activeAgent];
     history.forEach(msg => appendChatMessage(msg));
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    requestAnimationFrame(() => {
+      const isNearBottom = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 60;
+      if (isNearBottom) chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
     updateChatStats();
   }
 
@@ -1291,8 +1294,78 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Compare All Agents — send the same question to all agents
+  const compareBtn = document.getElementById('compareAgentsBtn');
+  if (compareBtn) {
+    compareBtn.addEventListener('click', async () => {
+      const question = chatInput.value.trim() || 'Give me your best advice for this project based on its current strategy.';
+      if (!question || sendChatBtn.disabled) return;
+      sendChatBtn.disabled = true;
+
+      // Send to current agent first (as the user's message)
+      chatHistories[activeAgent].push({ role: 'user', content: `[Comparing all agents] ${question}` });
+      chatInput.value = '';
+      renderChat();
+
+      const typingBubble = document.createElement('div');
+      typingBubble.className = 'message assistant typing';
+      typingBubble.textContent = 'Consulting all agents...';
+      chatMessages.appendChild(typingBubble);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      try {
+        const response = await fetch('/api/chat/consolidate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agents: ['strategist', 'copywriter', 'advisor'],
+            message: question
+          })
+        });
+
+        if (!response.ok) throw new Error('Consolidation failed');
+        const data = await response.json();
+
+        // Build a consolidated reply
+        let consolidated = '## 🤖 Multi-Agent Analysis\n\n';
+        consolidated += `_Question: ${question}_\n\n`;
+        consolidated += '---\n\n';
+
+        data.results.forEach(r => {
+          const agentNames = { strategist: 'Strategist', copywriter: 'Copywriter', advisor: 'Advisor' };
+          const emojis = { strategist: '🎯', copywriter: '✍️', advisor: '💰' };
+          consolidated += `### ${emojis[r.agentId] || '📌'} ${agentNames[r.agentId] || r.agentId}\n\n`;
+          if (r.error) {
+            consolidated += `_Error: ${r.error}_\n\n`;
+          } else {
+            consolidated += r.reply.slice(0, 2000) + '\n\n';
+          }
+          consolidated += '---\n\n';
+        });
+
+        consolidated += '\n*Multi-agent comparison complete. Consider combining the best insights from each perspective.*';
+
+        chatMessages.removeChild(typingBubble);
+        chatHistories[activeAgent].push({ role: 'assistant', content: consolidated, ts: formatTimestamp() });
+        const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
+        localStorage.setItem(chatKey, JSON.stringify(chatHistories));
+        renderChat();
+
+      } catch (err) {
+        console.error(err);
+        if (typingBubble.parentNode) chatMessages.removeChild(typingBubble);
+        const errBubble = document.createElement('div');
+        errBubble.className = 'message system';
+        errBubble.textContent = 'Multi-agent consultation failed.';
+        chatMessages.appendChild(errBubble);
+      }
+
+      sendChatBtn.disabled = false;
+    });
+  }
+
   // Quick action buttons — fill input with a pre-defined prompt
-  document.querySelectorAll('.quick-action-btn').forEach(btn => {
+  document.querySelectorAll('.quick-action-btn:not(#compareAgentsBtn)').forEach(btn => {
     btn.addEventListener('click', () => {
       const prompt = btn.getAttribute('data-prompt');
       if (prompt) {
