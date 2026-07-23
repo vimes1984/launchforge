@@ -908,6 +908,22 @@ document.addEventListener('DOMContentLoaded', () => {
         conversationIds[activeAgent] = data.conversationId;
       }
 
+      // Add extracted action items to kanban board automatically
+      if (data.actionItems && Array.isArray(data.actionItems) && data.actionItems.length > 0) {
+        data.actionItems.forEach(item => {
+          const exists = currentProject.tasks.some(t => t.title === item.title);
+          if (!exists) {
+            currentProject.tasks.push({
+              id: 'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+              title: item.title,
+              status: 'todo'
+            });
+          }
+        });
+        saveTasks();
+        renderTasks();
+      }
+
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
       localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
