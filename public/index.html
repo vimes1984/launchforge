@@ -18,7 +18,7 @@
 
   <div class="app-container">
     <!-- Header Section -->
-    <header class="app-header">
+    <header class="app-header" role="banner">
       <div class="logo-area">
         <span class="logo-icon">🚀</span>
         <div class="logo-text">
@@ -32,9 +32,9 @@
       </div>
     </header>
 
-    <div class="main-layout">
+    <main class="main-layout">
       <!-- Left Panel: Workspace Tabs -->
-      <section class="panel left-panel">
+      <section class="panel left-panel" aria-label="Workspace tabs and project details">
         <div class="project-info-banner">
           <div class="project-meta">
             <h2 id="projectTitle">Coop-Harvest</h2>
@@ -185,7 +185,7 @@
       </section>
 
       <!-- Right Panel: Kanban & Agent Chat -->
-      <section class="panel right-panel">
+      <section class="panel right-panel" aria-label="Launch checklist and agent chat">
         <div class="accordion-section">
           <!-- Kanban Tasks Section -->
           <div class="accordion-item" id="accordion-kanban">
@@ -252,7 +252,7 @@
           </div>
         </div>
       </section>
-    </div>
+    </main>
   </div>
 
   <script src="app.js"></script>

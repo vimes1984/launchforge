@@ -13,6 +13,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Security response headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+
 const PORT = 5000;
 
 // Allowed base directory for local repo path resolution (prevents traversal)
