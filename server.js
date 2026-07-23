@@ -333,46 +333,24 @@ app.post('/api/analyze', async (req, res) => {
         cloneUrl = `https://github.com/${repoPath}.git`;
       }
 
-      // Dedup concurrent clones to same URL: share the in-flight promise
+      // Dedup concurrent clones to same URL: reject duplicate requests
       const normalizedUrl = cloneUrl.replace(/\.git$/, '').toLowerCase();
       if (inFlightClones.has(normalizedUrl)) {
-        console.log(`Reusing in-flight clone for: ${normalizedUrl}`);
-        try {
-          const cachedResult = await inFlightClones.get(normalizedUrl);
-          resolvedPath = cachedResult.path;
-          isTemp = true;
-          defaultProjectName = cachedResult.name;
-          tempDir = cachedResult.path;
-          // Skip to file parsing (no need to re-clone)
-          return parseAndRespond(res, resolvedPath, defaultProjectName, tempDir, isTemp);
-        } catch {
-          // If cached clone failed, fall through to try again
-        }
+        return res.status(429).json({ error: 'This repository is already being analyzed. Please wait.' });
       }
+      inFlightClones.set(normalizedUrl, true);
 
-      const clonePromise = (async () => {
-        const dir = path.join(TEMP_DIR, `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
-        await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-        const cleanP = repoPath.replace(/\.git$/, '');
-        const name = cleanP.split('/').pop() || 'Git Project';
-        await execPromise(`git clone --depth 1 "${cloneUrl}" "${dir}"`, { timeout: 60000 });
-        try { await fs.chmod(dir, 0o700); } catch(e) { console.warn("Failed to chmod temp dir:", e); }
-        return { path: dir, name };
-      })();
-
-      inFlightClones.set(normalizedUrl, clonePromise);
-      clonePromise.finally(() => {
-        inFlightClones.delete(normalizedUrl);
-      });
+      tempDir = path.join(TEMP_DIR, `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });
+      const cleanPath = repoPath.replace(/\.git$/, '');
+      defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
 
       try {
-        const result = await clonePromise;
-        resolvedPath = result.path;
-        tempDir = result.path;
+        await execPromise(`git clone --depth 1 "${cloneUrl}" "${tempDir}"`, { timeout: 60000 });
+        resolvedPath = tempDir;
         isTemp = true;
-        defaultProjectName = result.name;
+        try { await fs.chmod(tempDir, 0o700); } catch(e) { console.warn('Failed to chmod temp dir:', e); }
       } catch (cloneErr) {
-        inFlightClones.delete(normalizedUrl);
         console.error('Failed to clone repository:', cloneErr);
         if (cloneErr.killed || cloneErr.code === 'ETIMEDOUT' || cloneErr.signal === 'SIGTERM') {
           return res.status(408).json({ error: 'Git clone timed out after 60 seconds.' });
@@ -384,6 +362,8 @@ app.post('/api/analyze', async (req, res) => {
           return res.status(500).json({ error: 'Permission denied: unable to create temp directory for clone.' });
         }
         return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
+      } finally {
+        inFlightClones.delete(normalizedUrl);
       }      // Create temp directory with restricted permissions (owner-only)      
       const cleanPath = repoPath.replace(/\.git$/, '');
       defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
