@@ -504,6 +504,8 @@ document.addEventListener('DOMContentLoaded', () => {
       chatHistories[activeAgent] = [
         { role: 'assistant', content: `Conversation cleared. How can I help you with your launch strategy?` }
       ];
+      // Reset server-side conversation ID so it starts fresh
+      conversationIds[activeAgent] = null;
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
       localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
