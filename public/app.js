@@ -1583,11 +1583,24 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const shortcuts = [
           ['Ctrl+Enter', 'Send chat message'],
+          ['Ctrl+L', 'Focus repo path'],
           ['Escape', 'Close modals / Clear input'],
           ['?', 'Show this help'],
           ['Enter (task input)', 'Add task'],
           ['Double-click task', 'Rename task']
         ];
+        showConfirmModal('Keyboard Shortcuts', `<table class="shortcuts-table">${html}</table>`,
+          'Got it', 'primary-btn');
+        return;
+      }
+    }
+    
+    // Ctrl+L: Focus repo path input
+    if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+      e.preventDefault();
+      repoPathInput.focus();
+      repoPathInput.select();
+    }
         const html = shortcuts.map(([key, desc]) => `<tr><td><kbd>${key}</kbd></td><td>${desc}</td></tr>`).join('');
         showConfirmModal('Keyboard Shortcuts', `<table class="shortcuts-table">${html}</table>`,
           'Got it', 'primary-btn');
