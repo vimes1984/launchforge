@@ -406,7 +406,25 @@ document.addEventListener('DOMContentLoaded', () => {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(await response.text());
+        let errData;
+        try {
+          errData = await response.json();
+        } catch {
+          throw new Error(`Server returned HTTP ${response.status}`);
+        }
+        
+        // Categorize error types for better user feedback
+        if (response.status === 503 && errData.circuitOpen) {
+          throw new Error('gateway_circuit_open');
+        } else if (response.status === 504) {
+          throw new Error('gateway_timeout');
+        } else if (response.status === 502) {
+          throw new Error('gateway_bad_response');
+        } else if (response.status === 429) {
+          throw new Error('rate_limited');
+        } else {
+          throw new Error(errData.error || `Server error (${response.status})`);
+        }
       }
       
       const data = await response.json();
@@ -422,11 +440,23 @@ document.addEventListener('DOMContentLoaded', () => {
       
     } catch (err) {
       console.error(err);
-      chatMessages.removeChild(typingBubble);
+      // Remove typing bubble if it still exists
+      if (typingBubble.parentNode) {
+        chatMessages.removeChild(typingBubble);
+      }
       const errorBubble = document.createElement('div');
       errorBubble.className = 'message system';
+      
       if (err.name === 'AbortError') {
         errorBubble.textContent = 'Request timed out after 30 seconds. Please check gateway connection and try again.';
+      } else if (err.message === 'gateway_circuit_open') {
+        errorBubble.textContent = 'Agent gateway is overloaded and temporarily paused. Please wait a minute and try again.';
+      } else if (err.message === 'gateway_timeout') {
+        errorBubble.textContent = 'The agent took too long to respond. Please try a simpler question or try again later.';
+      } else if (err.message === 'rate_limited') {
+        errorBubble.textContent = 'Too many requests. Please wait a moment before sending another message.';
+      } else if (err.message === 'gateway_bad_response') {
+        errorBubble.textContent = 'The agent returned an unexpected response. Please try again.';
       } else {
         errorBubble.textContent = 'Consultation failed. Check OpenClaw gateway connection.';
       }
