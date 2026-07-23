@@ -381,14 +381,20 @@ document.addEventListener('DOMContentLoaded', () => {
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           agentId: activeAgent,
           messages: chatHistories[activeAgent].slice(-5) // Send last 5 turns to preserve context window limit
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error(await response.text());
@@ -409,7 +415,11 @@ document.addEventListener('DOMContentLoaded', () => {
       chatMessages.removeChild(typingBubble);
       const errorBubble = document.createElement('div');
       errorBubble.className = 'message system';
-      errorBubble.textContent = 'Consultation failed. Check OpenClaw gateway connection.';
+      if (err.name === 'AbortError') {
+        errorBubble.textContent = 'Request timed out after 30 seconds. Please check gateway connection and try again.';
+      } else {
+        errorBubble.textContent = 'Consultation failed. Check OpenClaw gateway connection.';
+      }
       chatMessages.appendChild(errorBubble);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -424,10 +434,22 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Setup repo reload listener
+  function getRepoPath() {
+    return repoPathInput.value.trim();
+  }
+
   analyzeBtn.addEventListener('click', () => {
-    loadRepository(repoPathInput.value);
+    const path = getRepoPath();
+    if (!path) {
+      projectDesc.textContent = 'Please enter a repository path or URL.';
+      return;
+    }
+    loadRepository(path);
   });
 
   // Initial Load
-  loadRepository(repoPathInput.value);
+  const initialPath = getRepoPath();
+  if (initialPath) {
+    loadRepository(initialPath);
+  }
 });
