@@ -355,6 +355,17 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (task.status === 'progress') progressList.appendChild(card);
       else if (task.status === 'done') doneList.appendChild(card);
     });
+    
+    // Show empty state placeholders if no tasks in a column
+    if (!todoList.children.length) {
+      todoList.appendChild(createEmptyState('No tasks yet. Add one below!'));
+    }
+    if (!progressList.children.length) {
+      progressList.appendChild(createEmptyState('Move tasks here when working on them.'));
+    }
+    if (!doneList.children.length) {
+      doneList.appendChild(createEmptyState('Completed tasks will appear here.'));
+    }
   }
 
   function getPrevStatus(status) {

@@ -71,6 +71,12 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const duration = Date.now() - start;
     const resSize = res.getHeader('content-length') || 0;
+    requestCount++;
+    // Log memory usage every 100 requests
+    if (requestCount % 100 === 0) {
+      const mem = process.memoryUsage();
+      console.log(`[MEMORY] req#${requestCount} rss=${Math.round(mem.rss / 1024 / 1024)}MB heap=${Math.round(mem.heapUsed / 1024 / 1024)}MB`);
+    }
     console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms req=${reqSize}b res=${resSize}b`);
   });
   next();
@@ -87,9 +93,34 @@ function isPathSafe(resolvedPath) {
   return normalized.startsWith(WORKSPACE_BASE);
 }
 
+// Simple in-memory request counter
+let requestCount = 0;
+const recentErrors = [];
+const MAX_RECENT_ERRORS = 50;
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
+// Detailed status endpoint with metrics
+app.get('/api/status', (req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    platform: process.platform,
+    memory: {
+      rss: mem.rss,
+      heapTotal: mem.heapTotal,
+      heapUsed: mem.heapUsed,
+      external: mem.external
+    },
+    requestCount,
+    recentErrorCount: recentErrors.length
+  });
 });
 
 // Restrict HTTP methods on API routes — return 405 for unsupported methods
