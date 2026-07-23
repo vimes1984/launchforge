@@ -377,6 +377,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  function updateChatStats() {
+    const history = chatHistories[activeAgent];
+    const msgCount = history.filter(m => m.role === 'user' || m.role === 'assistant').length;
+    if (chatMsgCount) {
+      chatMsgCount.textContent = `${msgCount} message${msgCount !== 1 ? 's' : ''}`;
+    }
+  }
+
   function renderChat() {
     chatMessages.innerHTML = '';
     const history = chatHistories[activeAgent];
@@ -387,6 +395,19 @@ document.addEventListener('DOMContentLoaded', () => {
       chatMessages.appendChild(bubble);
     });
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    updateChatStats();
+  }
+
+  // Clear conversation handler
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', () => {
+      chatHistories[activeAgent] = [
+        { role: 'assistant', content: `Conversation cleared. How can I help you with your launch strategy?` }
+      ];
+      const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
+      localStorage.setItem(chatKey, JSON.stringify(chatHistories));
+      renderChat();
+    });
   }
 
   async function sendChatMessage() {

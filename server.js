@@ -205,7 +205,7 @@ app.post('/api/analyze', async (req, res) => {
     } else {
       // Symlink protection: reject symlinked directories (prevents symlink-based traversal)
       try {
-        const stat = fslib.statSync(absolutePath);
+        const stat = fslib.lstatSync(absolutePath);
         if (stat.isSymbolicLink()) {
           return res.status(400).json({ error: "Invalid repoPath: symlinked directories are not allowed" });
         }
