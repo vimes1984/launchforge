@@ -65,6 +65,61 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatMsgCount = document.getElementById('chatMsgCount');
   const clearChatBtn = document.getElementById('clearChatBtn');
   const gatewayStatusIndicator = document.getElementById('gatewayStatusIndicator');
+  const agentTempSlider = document.getElementById('agentTempSlider');
+  const agentTempValue = document.getElementById('agentTempValue');
+  const agentMaxTokensSlider = document.getElementById('agentMaxTokensSlider');
+  const agentMaxTokensValue = document.getElementById('agentMaxTokensValue');
+  const agentModelSelect = document.getElementById('agentModelSelect');
+
+  // Agent configuration with per-agent overrides
+  let agentConfigs = {
+    strategist: { temperature: 0.7, maxTokens: 1000, model: 'openclaw' },
+    copywriter: { temperature: 0.8, maxTokens: 1500, model: 'openclaw' },
+    advisor: { temperature: 0.5, maxTokens: 2000, model: 'openclaw' }
+  };
+
+  function loadAgentSettings() {
+    const config = agentConfigs[activeAgent];
+    if (!config) return;
+    if (agentTempSlider) {
+      agentTempSlider.value = Math.round(config.temperature * 10);
+      agentTempValue.textContent = config.temperature.toFixed(1);
+    }
+    if (agentMaxTokensSlider) {
+      agentMaxTokensSlider.value = Math.round(config.maxTokens / 100);
+      agentMaxTokensValue.textContent = config.maxTokens;
+    }
+    if (agentModelSelect) agentModelSelect.value = config.model || 'openclaw';
+  }
+
+  function saveAgentSettings() {
+    if (!agentTempSlider || !agentMaxTokensSlider || !agentModelSelect) return;
+    agentConfigs[activeAgent] = {
+      temperature: parseInt(agentTempSlider.value) / 10,
+      maxTokens: parseInt(agentMaxTokensSlider.value) * 100,
+      model: agentModelSelect.value
+    };
+  }
+
+  if (agentTempSlider) {
+    agentTempSlider.addEventListener('input', () => {
+      const val = parseInt(agentTempSlider.value) / 10;
+      if (agentTempValue) agentTempValue.textContent = val.toFixed(1);
+      saveAgentSettings();
+    });
+  }
+
+  if (agentMaxTokensSlider) {
+    agentMaxTokensSlider.addEventListener('input', () => {
+      const val = parseInt(agentMaxTokensSlider.value) * 100;
+      if (agentMaxTokensValue) agentMaxTokensValue.textContent = val;
+      saveAgentSettings();
+    });
+  }
+
+  if (agentModelSelect) {
+    agentModelSelect.addEventListener('change', saveAgentSettings);
+  }
   const followUpSuggestions = document.getElementById('followUpSuggestions');
   const followUpButtons = document.getElementById('followUpButtons');
 
@@ -229,6 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
       }
       renderChat();
+      showToast(`Analysis complete for ${currentProject.projectName}`, 3000);
 
     } catch (err) {
       console.error(err);
@@ -587,6 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
     newTaskInput.value = '';
     saveTasks();
     renderTasks();
+    showToast(`Task "${val}" added`, 2000);
   }
 
   addTaskBtn.addEventListener('click', addNewTask);
@@ -610,6 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       activeAgent = btn.getAttribute('data-agent');
       if (followUpSuggestions) followUpSuggestions.style.display = 'none';
+      loadAgentSettings();
       renderChat();
       updateChatStats();
     });
@@ -738,8 +796,9 @@ document.addEventListener('DOMContentLoaded', () => {
     gatewayStatusIndicator.title = titles[gatewayStatus] || 'Status unknown';
   }
 
-  // Initial health check on startup
+  // Initial health check and settings load on startup
   setTimeout(checkGatewayHealth, 1000);
+  setTimeout(loadAgentSettings, 500);
 
   async function sendChatMessage() {
     const val = chatInput.value.trim();
@@ -789,13 +848,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      const config = agentConfigs[activeAgent] || {};
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           agentId: activeAgent,
           messages: trimmedHistory,
-          conversationId: conversationIds[activeAgent]
+          conversationId: conversationIds[activeAgent],
+          temperature: config.temperature,
+          maxTokens: config.maxTokens,
+          model: config.model
         }),
         signal: controller.signal
       });
@@ -937,4 +1000,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (initialPath) {
     loadRepository(initialPath);
   }
+
+  // Offline/online detection
+  function updateOnlineStatus() {
+    const banner = document.getElementById('offline-banner');
+    if (!banner) return;
+    if (navigator.onLine) {
+      banner.classList.add('hidden');
+      banner.classList.remove('visible');
+    } else {
+      banner.textContent = '🔌 You are offline. Some features may be limited.';
+      banner.classList.remove('hidden');
+      banner.classList.add('visible');
+    }
+  }
+
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  setTimeout(updateOnlineStatus, 500);
 });

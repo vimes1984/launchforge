@@ -572,7 +572,7 @@ setInterval(() => {
 
 // Proxy agent prompts to local OpenClaw gateway
 app.post('/api/chat', async (req, res) => {
-  const { agentId, messages, conversationId } = req.body;
+  const { agentId, messages, conversationId, temperature, maxTokens, model } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
   }
@@ -689,11 +689,13 @@ Structure your replies using Markdown with clear sections. Keep answers practica
     }
 
     const payload = {
-      model: 'openclaw',
+      model: model || 'openclaw',
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages
       ],
+      temperature: temperature ?? 0.7,
+      max_tokens: maxTokens ?? 1000,
       metadata: agentMeta,
       user: agentMeta.agent_id
     };
