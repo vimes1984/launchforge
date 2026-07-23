@@ -636,6 +636,94 @@ app.get('/api/agent/analytics', (req, res) => {
 });
 
 // Proxy agent prompts to local OpenClaw gateway
+// Streaming chat endpoint using SSE
+app.post('/api/chat/stream', async (req, res) => {
+  const { agentId, messages, conversationId, temperature, maxTokens, model } = req.body;
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages must be a non-empty array' });
+  }
+
+  // Set SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+
+  const systemPrompt = buildSystemPrompt(agentId);
+  const agentMeta = buildAgentMeta(agentId);
+
+  try {
+    const gatewayConfig = await getOpenClawConfig();
+    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://localhost:${gatewayConfig.port}`;
+    const endpoint = `${gatewayUrl}/v1/chat/completions`;
+
+    const headers = { 'Content-Type': 'application/json' };
+    const token = process.env.OPENCLAW_GATEWAY_TOKEN || gatewayConfig.token;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const payload = {
+      model: model || 'openclaw',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ],
+      temperature: temperature ?? 0.7,
+      max_tokens: maxTokens ?? 1000,
+      metadata: agentMeta,
+      user: agentMeta.agent_id,
+      stream: true
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      res.write(`data: ${JSON.stringify({ error: errText })}\n\n`);
+      res.end();
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullReply = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+      for (const line of lines) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          const content = data.choices?.[0]?.delta?.content || '';
+          if (content) {
+            fullReply += content;
+            res.write(`data: ${JSON.stringify({ content })}\n\n`);
+          }
+        } catch {}
+      }
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true, conversationId, fullReply })}\n\n`);
+    res.end();
+  } catch (err) {
+    console.error('Streaming error:', err);
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+    res.end();
+  }
+});
+
 app.post('/api/chat', async (req, res) => {
   const { agentId, messages, conversationId, temperature, maxTokens, model } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
