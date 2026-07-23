@@ -792,6 +792,12 @@ async function startServer() {
     process.exit(1);
   }
 
+  // Check for .env file and warn if missing
+  const envPath = path.resolve('.env');
+  if (!existsSync(envPath)) {
+    console.warn('No .env file found. Using default configuration.');
+  }
+
   // Validate git availability
   try {
     await execPromise('git --version', { timeout: 5000 });

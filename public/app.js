@@ -64,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendChatBtn = document.getElementById('sendChatBtn');
   const chatMsgCount = document.getElementById('chatMsgCount');
   const clearChatBtn = document.getElementById('clearChatBtn');
+  const followUpSuggestions = document.getElementById('followUpSuggestions');
+  const followUpButtons = document.getElementById('followUpButtons');
 
   // Simple Markdown Parser
   function escapeHtml(str) {
@@ -457,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('active');
       
       activeAgent = btn.getAttribute('data-agent');
+      if (followUpSuggestions) followUpSuggestions.style.display = 'none';
       renderChat();
       updateChatStats();
     });
@@ -498,6 +501,49 @@ document.addEventListener('DOMContentLoaded', () => {
     updateChatStats();
   }
 
+  // Show follow-up suggestion buttons based on latest assistant response
+  function renderFollowUpSuggestions() {
+    const history = chatHistories[activeAgent];
+    const lastMsg = history[history.length - 1];
+    if (!lastMsg || lastMsg.role !== 'assistant' || !followUpSuggestions || !followUpButtons) return;
+
+    // Parse follow-up questions from response: look for lines starting with - or numbered items near the end
+    const lines = lastMsg.content.split('\n').filter(l => l.trim());
+    const suggestLines = [];
+    for (let i = lines.length - 1; i >= Math.max(0, lines.length - 8); i--) {
+      const trimmed = lines[i].trim();
+      // Match: - something?, * something?, or numbered list items ending with ?
+      if (/^[-*]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) {
+        suggestLines.unshift(trimmed.replace(/^[-*]\s+|^\d+\.\s+/, ''));
+      }
+      // Match: **...?** or just lines ending with ?
+      else if (/\?$/.test(trimmed) && !/^(##|>|```)/.test(trimmed)) {
+        suggestLines.unshift(trimmed.replace(/^\*\*|\*\*$/g, ''));
+      }
+      if (suggestLines.length >= 3) break;
+    }
+
+    if (suggestLines.length === 0) {
+      followUpSuggestions.style.display = 'none';
+      return;
+    }
+
+    followUpButtons.innerHTML = '';
+    suggestLines.slice(0, 3).forEach(suggestion => {
+      const btn = document.createElement('button');
+      btn.className = 'follow-up-btn';
+      btn.textContent = suggestion.length > 60 ? suggestion.slice(0, 60) + '…' : suggestion;
+      btn.title = suggestion;
+      btn.addEventListener('click', () => {
+        chatInput.value = suggestion;
+        chatInput.focus();
+        sendChatMessage();
+      });
+      followUpButtons.appendChild(btn);
+    });
+    followUpSuggestions.style.display = 'block';
+  }
+
   // Clear conversation handler
   if (clearChatBtn) {
     clearChatBtn.addEventListener('click', () => {
@@ -506,6 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ];
       // Reset server-side conversation ID so it starts fresh
       conversationIds[activeAgent] = null;
+      if (followUpSuggestions) followUpSuggestions.style.display = 'none';
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
       localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
@@ -611,11 +658,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
       localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
+      renderFollowUpSuggestions();
       
       // Re-enable send button
       sendChatBtn.disabled = false;
       
     } catch (err) {
+      if (followUpSuggestions) followUpSuggestions.style.display = 'none';
       console.error(err);
       // Remove typing bubble if it still exists
       if (typingBubble.parentNode) {
