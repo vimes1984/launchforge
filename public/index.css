@@ -1409,6 +1409,19 @@ textarea.input-error {
   }
 }
 
+@media (prefers-reduced-text: reduce) {
+  body {
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+  }
+  .logo-text h1 {
+    font-size: 1.3rem !important;
+  }
+  .markdown-view p {
+    font-size: 1rem !important;
+  }
+}
+
 /* Modal overlay */
 .modal-overlay {
   position: fixed;
