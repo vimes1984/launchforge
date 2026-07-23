@@ -23,6 +23,16 @@
   --font-weight-medium: 500;
   --font-weight-bold: 600;
 
+  /* Font-size scale */
+  --text-xs: 0.7rem;
+  --text-sm: 0.8rem;
+  --text-base: 0.9rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.6rem;
+  --text-3xl: 2rem;
+
   /* Spacing & sizing tokens */
   --radius-sm: 8px;
   --radius-md: 12px;
