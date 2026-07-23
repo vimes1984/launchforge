@@ -681,6 +681,71 @@ app.get('/api/agent/analytics', (req, res) => {
   });
 });
 
+// Multi-agent consolidation endpoint — queries multiple agents and merges responses
+app.post('/api/chat/consolidate', async (req, res) => {
+  const { agents, message, conversationId, language } = req.body;
+  if (!agents || !Array.isArray(agents) || agents.length < 2) {
+    return res.status(400).json({ error: 'agents must be an array with at least 2 agent IDs' });
+  }
+  if (!message) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  try {
+    const results = [];
+    for (const agentId of agents) {
+      const systemPrompt = buildSystemPrompt(agentId, language);
+      const agentMeta = buildAgentMeta(agentId);
+
+      const gatewayConfig = await getOpenClawConfig();
+      const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://localhost:${gatewayConfig.port}`;
+      const endpoint = `${gatewayUrl}/v1/chat/completions`;
+
+      const headers = { 'Content-Type': 'application/json' };
+      const token = process.env.OPENCLAW_GATEWAY_TOKEN || gatewayConfig.token;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const payload = {
+        model: 'openclaw',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        temperature: agentId === 'advisor' ? 0.5 : 0.7,
+        max_tokens: 2000,
+        metadata: agentMeta
+      };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        results.push({
+          agentId,
+          reply: data.choices?.[0]?.message?.content || ''
+        });
+      } else {
+        const errText = await response.text();
+        results.push({ agentId, reply: '', error: errText });
+      }
+    }
+
+    res.json({ message, results, agents, count: results.length });
+  } catch (err) {
+    console.error('Consolidation error:', err);
+    res.status(500).json({ error: 'Consolidation failed.' });
+  }
+});
+
 // Proxy agent prompts to local OpenClaw gateway
 // Streaming chat endpoint using SSE
 app.post('/api/chat/stream', async (req, res) => {

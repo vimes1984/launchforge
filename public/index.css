@@ -288,6 +288,33 @@ body {
   white-space: nowrap;
 }
 
+/* Success animation */
+.success-flash {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 4rem;
+  z-index: 99999;
+  pointer-events: none;
+  animation: successPop 0.6s ease-out forwards;
+}
+
+@keyframes successPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+}
+
 /* Focus-visible keyboard navigation */
 :focus-visible {
   outline: 2px solid var(--accent-color);

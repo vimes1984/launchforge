@@ -321,6 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setProgress(90, 'Parsing strategy and posts...');
       await new Promise(r => setTimeout(r, 200));
       setProgress(100, 'Complete!');
+      showSuccessAnimation();
       setTimeout(() => hideProgress(), 800);
       showToast(`Analysis complete for ${currentProject.projectName}`, 3000);
 
