@@ -738,6 +738,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (progressFill) progressFill.style.width = progressPct + '%';
     if (progressText) progressText.textContent = progressPct + '% complete (' + doneTasksCount + '/' + totalTasks + ')';
 
+    // Update document title with task summary
+    const projectName = currentProject.projectName || currentProject.name || 'LaunchForge';
+    if (totalTasks > 0) {
+      document.title = `${projectName} — ${doneTasksCount}/${totalTasks} tasks — LaunchForge`;
+    } else {
+      document.title = `${projectName} — LaunchForge`;
+    }
+
     // Show empty state placeholders if no tasks in a column
     if (!todoList.children.length) {
       todoList.appendChild(createEmptyState('No tasks yet. Add one below!'));
