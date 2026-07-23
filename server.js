@@ -279,7 +279,16 @@ async function tryReadFile(filePath) {
 // Analyze repository files
 app.post('/api/analyze', async (req, res) => {
   const rawRepoPath = req.body.repoPath;
-  const repoPath = rawRepoPath ? rawRepoPath.trim() : rawRepoPath;
+  // Normalize repoPath: trim whitespace and apply Unicode NFKC normalization
+  let repoPath = rawRepoPath;
+  if (repoPath) {
+    repoPath = repoPath.trim();
+    try {
+      repoPath = repoPath.normalize('NFKC');
+    } catch {
+      // If normalization fails, use the trimmed value as-is
+    }
+  }
   if (!repoPath) {
     return res.status(400).json({ error: 'repoPath is required' });
   }

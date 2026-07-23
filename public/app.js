@@ -166,7 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoPath })
+        body: JSON.stringify({ repoPath }),
+        credentials: "same-origin"
       });
       
       if (!response.ok) {
