@@ -216,7 +216,14 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.classList.add('active');
     btn.setAttribute('aria-selected', 'true');
     const tabId = btn.getAttribute('data-tab');
-    document.getElementById(`tab-${tabId}`).classList.add('active');
+    const pane = document.getElementById(`tab-${tabId}`);
+    pane.classList.add('active');
+    // Fade in the new tab content
+    pane.style.opacity = '0';
+    requestAnimationFrame(() => {
+      pane.style.transition = 'opacity 0.12s ease';
+      pane.style.opacity = '1';
+    });
   }
 
   tabButtons.forEach((btn, i) => {
