@@ -13,18 +13,24 @@ import helmet from 'helmet';
 const execPromise = promisify(exec);
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-
-
-// Rate limiting middleware for POST endpoints
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
-});
+// Restrict CORS to known origins
+const allowedOrigins = [
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+  "http://localhost:18789",
+  "http://127.0.0.1:18789"
+];
+function corsOriginCheck(origin, cb) {
+  if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+  // Allow any localhost origin for development
+  const localhostRe = /^https?:\/\/localhost(:[0-9]+)?$/i;
+  const localIpRe = /^https?:\/\/127\.0\.0\.1(:[0-9]+)?$/i;
+  if (localhostRe.test(origin) || localIpRe.test(origin)) {
+    return cb(null, true);
+  }
+  cb(new Error("Not allowed by CORS"));
+}
+app.use(cors({ origin: corsOriginCheck }));
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -415,6 +421,7 @@ app.post('/api/chat', async (req, res) => {
     });
 
     clearTimeout(timeoutId);
+    recordCircuitSuccess();
 
     if (!response.ok) {
       recordCircuitFailure();

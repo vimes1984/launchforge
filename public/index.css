@@ -186,6 +186,30 @@ button {
   transform: translateY(-1px);
 }
 
+.primary-btn.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.primary-btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: 50%;
+  left: 50%;
+  margin: -10px 0 0 -10px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .sec-btn {
   background: hsla(220, 20%, 20%, 0.5);
   border: 1px solid var(--panel-border);
