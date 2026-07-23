@@ -28,7 +28,7 @@
         </div>
       </div>
       <div class="repo-selector">
-        <input type="text" id="repoPathInput" placeholder="Local path or GitHub URL (e.g. vimes1984/coop-harvest)" value="/home/chris/websites/coop-harvest">
+        <input type="text" id="repoPathInput" placeholder="Local path or GitHub URL (e.g. vimes1984/coop-harvest)" value="/home/chris/websites/coop-harvest" maxlength="4096">
         <button id="analyzeBtn" class="primary-btn" type="button">Analyze Repo</button>
       </div>
     </header>
@@ -234,7 +234,7 @@
                 <input type="search" id="taskSearchInput" placeholder="Filter tasks by keyword..." aria-label="Search tasks">
               </div>
               <div class="add-task-form">
-                <input type="text" id="newTaskInput" placeholder="Add custom launch task...">
+                <input type="text" id="newTaskInput" placeholder="Add custom launch task..." maxlength="500">
                 <button id="addTaskBtn" class="sec-btn" type="button">Add Task</button>
               </div>
             </div>
