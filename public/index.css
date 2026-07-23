@@ -380,6 +380,26 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  animation: panelFadeIn 0.5s ease-out;
+}
+
+.left-panel {
+  animation-delay: 0.1s;
+}
+
+.right-panel {
+  animation-delay: 0.25s;
+}
+
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Left Panel - Project banner */
