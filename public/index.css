@@ -729,6 +729,12 @@ button {
   margin-bottom: 1rem;
 }
 
+@media (max-width: 700px) {
+  .kanban-board {
+    grid-template-columns: 1fr;
+  }
+}
+
 .kanban-column {
   background: hsla(220, 30%, 4%, 0.5);
   border-radius: 12px;
