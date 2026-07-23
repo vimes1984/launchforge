@@ -986,6 +986,18 @@ button {
   color: var(--text-dim);
 }
 
+.gateway-status-indicator {
+  font-size: 0.7rem;
+  margin-left: auto;
+  margin-right: 0.5rem;
+  opacity: 0.7;
+}
+
+.gateway-status-indicator.status-ok { color: var(--accent-color); }
+.gateway-status-indicator.status-degraded { color: hsl(40, 80%, 50%); }
+.gateway-status-indicator.status-unreachable { color: hsl(0, 60%, 50%); }
+.gateway-status-indicator.status-unknown { color: var(--text-dim); }
+
 .chat-stats-msgs {
   font-family: var(--font-family-mono);
 }
