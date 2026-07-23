@@ -6,12 +6,33 @@ import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+
 
 const execPromise = promisify(exec);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+
+// Rate limiting middleware for POST endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+const strictLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
 
 // Security response headers
 app.use((req, res, next) => {
@@ -68,7 +89,9 @@ function requireJsonContent(req, res, next) {
   }
   next();
 }
+app.use('/api/analyze', strictLimiter);
 app.use('/api/analyze', requireJsonContent);
+app.use('/api/chat', strictLimiter);
 app.use('/api/chat', requireJsonContent);
 
 // Resolve OpenClaw gateway connection details dynamically
@@ -429,6 +452,26 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`LaunchForge running at http://localhost:${PORT}`);
-});
+// Startup validation and server listen
+async function startServer() {
+  // Validate Node.js version (require >= 18 for native fetch)
+  const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
+  if (nodeMajor < 18) {
+    console.error(`LaunchForge requires Node.js >= 18 (current: ${process.version})`);
+    process.exit(1);
+  }
+
+  // Validate git availability
+  try {
+    await execPromise('git --version', { timeout: 5000 });
+  } catch {
+    console.error('LaunchForge requires git to be installed and in PATH');
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`LaunchForge running at http://localhost:${PORT}`);
+  });
+}
+
+startServer();
