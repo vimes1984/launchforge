@@ -235,17 +235,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Find HN pitch
     const hnRegex = /Show HN \([\s\S]+?```text\n([\s\S]+?)```/i;
     const hnMatch = hnRegex.exec(markdown);
-    if (hnMatch) hnCopy.textContent = hnMatch[1].trim();
+    if (hnMatch && hnCopy) hnCopy.textContent = hnMatch[1].trim();
 
     // Find Reddit pitch
     const redditRegex = /r\/solarpunk[\s\S]+?```text\n([\s\S]+?)```/i;
     const redditMatch = redditRegex.exec(markdown);
-    if (redditMatch) redditSolar.textContent = redditMatch[1].trim();
+    if (redditMatch && redditSolar) redditSolar.textContent = redditMatch[1].trim();
 
     // Find Press Release
     const prRegex = /Local Irish Media[\s\S]+?```text\n([\s\S]+?)```/i;
     const prMatch = prRegex.exec(markdown);
-    if (prMatch) pressRelease.textContent = prMatch[1].trim();
+    if (prMatch && pressRelease) pressRelease.textContent = prMatch[1].trim();
   }
 
   // Copy Buttons

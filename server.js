@@ -294,7 +294,7 @@ app.post('/api/analyze', async (req, res) => {
       const titleMatch = readme.match(/^#\s+(.+)$/m);
       if (titleMatch) projectName = titleMatch[1].trim();
       
-      const descLines = readme.split('').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('>'));
+      const descLines = readme.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('>'));
       if (descLines.length > 0) projectDesc = descLines[0].trim();
     }
 
@@ -303,9 +303,9 @@ app.post('/api/analyze', async (req, res) => {
       projectName,
       projectDesc,
       hasCustomPlan: Boolean(strategy),
-      strategyMarkdown: strategy || `# ${projectName} Business FrameworkNo custom strategy file found. Using dynamically generated template.`,
-      postsMarkdown: posts || `# Pitch PostsNo pitch posts found.`,
-      issuesMarkdown: issues || `# Proposed TasksNo tasks found.`,
+      strategyMarkdown: strategy || `# ${projectName} Business Framework\n\nNo custom strategy file found. Using dynamically generated template.`,
+      postsMarkdown: posts || `# Pitch Posts\n\nNo pitch posts found.`,
+      issuesMarkdown: issues || `# Proposed Tasks\n\nNo tasks found.`,
       tasks: [],
       financials: {
         labels: ['Revenue Split 1', 'Revenue Split 2', 'Revenue Split 3'],
@@ -420,11 +420,65 @@ function recordCircuitSuccess() {
   circuitBreaker.failures = 0;
 }
 
+// Server-side conversation state management
+const conversations = new Map();
+const CONVERSATION_MAX_AGE = 30 * 60 * 1000; // 30 minutes
+
+function getOrCreateConversation(conversationId, agentId) {
+  if (conversations.has(conversationId)) {
+    const conv = conversations.get(conversationId);
+    // Auto-clean stale conversations
+    if (Date.now() - conv.lastAccessed > CONVERSATION_MAX_AGE) {
+      conversations.delete(conversationId);
+      return createConversation(conversationId, agentId);
+    }
+    conv.lastAccessed = Date.now();
+    return conv;
+  }
+  return createConversation(conversationId, agentId);
+}
+
+function createConversation(conversationId, agentId) {
+  const conv = {
+    id: conversationId,
+    agentId,
+    messages: [],
+    created: Date.now(),
+    lastAccessed: Date.now(),
+    messageCount: 0
+  };
+  conversations.set(conversationId, conv);
+  return conv;
+}
+
+// Periodic cleanup of stale conversations
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, conv] of conversations) {
+    if (now - conv.lastAccessed > CONVERSATION_MAX_AGE) {
+      conversations.delete(id);
+      console.log(`Cleaned up stale conversation: ${id}`);
+    }
+  }
+}, 5 * 60 * 1000); // every 5 minutes
+
 // Proxy agent prompts to local OpenClaw gateway
 app.post('/api/chat', async (req, res) => {
-  const { agentId, messages } = req.body;
+  const { agentId, messages, conversationId } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
+  }
+
+  // Manage conversation state server-side
+  const convId = conversationId || `conv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const conversation = getOrCreateConversation(convId, agentId || 'default');
+
+  // Store incoming messages server-side
+  for (const msg of messages) {
+    if (msg.role === 'user' || msg.role === 'assistant') {
+      conversation.messages.push(msg);
+      conversation.messageCount++;
+    }
   }
   for (const msg of messages) {
     if (!msg || typeof msg !== 'object' || !msg.role || !msg.content) {
@@ -578,7 +632,11 @@ Structure your replies using Markdown with clear sections. Keep answers practica
       reply = reply.slice(0, MAX_RESPONSE_LENGTH) + '\n\n_Response was truncated due to length._';
     }
 
-    res.json({ reply });
+    // Store assistant response server-side
+    conversation.messages.push({ role: 'assistant', content: reply });
+    conversation.messageCount++;
+
+    res.json({ reply, conversationId: convId, messageCount: conversation.messageCount });
   } catch (err) {
     recordCircuitFailure();
     console.error('Agent chat error:', err);
