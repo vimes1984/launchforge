@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "prestart": "npm audit --audit-level=moderate || true",
+    "dev": "node --watch server.js",
+    "health": "curl -s http://localhost:5000/api/health | head -c 200",
+    "status": "curl -s http://localhost:5000/api/status | head -c 500",
     "security:audit": "npm audit --audit-level=moderate",
     "security:outdated": "npm outdated --long",
     "security:ci": "npm audit --audit-level=high || true"
