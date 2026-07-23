@@ -367,7 +367,8 @@ app.post('/api/analyze', async (req, res) => {
       } catch (cloneErr) {
         console.error('Failed to clone repository:', cloneErr.message);
         if (cloneErr.stderr) {
-          console.error('Git stderr:', cloneErr.stderr.slice(0, 500));
+          const stderrStr = typeof cloneErr.stderr === 'string' ? cloneErr.stderr : String(cloneErr.stderr);
+          console.error('Git stderr:', stderrStr.slice(0, 500));
         }
         if (cloneErr.killed || cloneErr.code === 'ETIMEDOUT' || cloneErr.signal === 'SIGTERM') {
           return res.status(408).json({ error: 'Git clone timed out after 60 seconds.' });
@@ -496,7 +497,10 @@ app.post('/api/analyze', async (req, res) => {
       try {
         await fs.rm(tempDir, { recursive: true, force: true });
       } catch (rmErr) {
-        console.error('Failed to clean up temp directory:', rmErr);
+        // ENOENT means dir was already cleaned up — not an error
+        if (rmErr.code !== 'ENOENT') {
+          console.error('Failed to clean up temp directory:', rmErr.message);
+        }
       }
     }
   }
@@ -604,6 +608,33 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000); // every 5 minutes
 
+// In-memory response cache for graceful degradation when gateway is down
+const responseCache = new Map();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+// Agent usage analytics
+const agentAnalytics = {
+  queries: { strategist: 0, copywriter: 0, advisor: 0, default: 0 },
+  totalResponseTime: 0,
+  totalResponses: 0,
+  cachedHits: 0,
+  errors: { strategist: 0, copywriter: 0, advisor: 0, default: 0 },
+  startTime: Date.now()
+};
+
+// Analytics endpoint
+app.get('/api/agent/analytics', (req, res) => {
+  const avgResponseTime = agentAnalytics.totalResponses > 0
+    ? Math.round(agentAnalytics.totalResponseTime / agentAnalytics.totalResponses)
+    : 0;
+  res.json({
+    ...agentAnalytics,
+    avgResponseTimeMs: avgResponseTime,
+    uptimeMinutes: Math.round((Date.now() - agentAnalytics.startTime) / 60000),
+    cachedResponses: responseCache.size
+  });
+});
+
 // Proxy agent prompts to local OpenClaw gateway
 app.post('/api/chat', async (req, res) => {
   const { agentId, messages, conversationId, temperature, maxTokens, model } = req.body;
@@ -696,11 +727,17 @@ Structure your replies using Markdown with clear sections. Keep answers practica
   };
 
   try {
+    // Track analytics
+    const agentKey = agentId && ['strategist', 'copywriter', 'advisor'].includes(agentId) ? agentId : 'default';
+    agentAnalytics.queries[agentKey]++;
+    const queryStartTime = Date.now();
+
     if (isCircuitOpen()) {
       // Try to return a cached response for graceful degradation
       const cacheKey = `${agentId || 'default'}:${messages[messages.length - 1]?.content?.slice(0, 100) || ''}`;
       const cached = responseCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        agentAnalytics.cachedHits++;
         return res.json({ reply: cached.reply, cached: true, conversationId: convId });
       }
       return res.status(503).json({ error: 'Agent gateway is temporarily unavailable. Please try again in a minute.', circuitOpen: true });
@@ -810,8 +847,13 @@ Structure your replies using Markdown with clear sections. Keep answers practica
       responseCache.delete(oldestKey);
     }
 
+    // Record analytics
+    agentAnalytics.totalResponseTime += Date.now() - queryStartTime;
+    agentAnalytics.totalResponses++;
+
     res.json({ reply, conversationId: convId, messageCount: conversation.messageCount, cached: false, actionItems });
   } catch (err) {
+    agentAnalytics.errors[agentKey]++;
     recordCircuitFailure();
     console.error('Agent chat error:', err);
     if (err.name === 'AbortError') {

@@ -218,6 +218,10 @@ document.addEventListener('DOMContentLoaded', () => {
     analyzeBtn.classList.add('loading');
     analyzeBtn.textContent = 'Analyzing';
     try {
+      // Simulated progress stages
+      setProgress(15, 'Cloning repository...');
+      await new Promise(r => setTimeout(r, 300));
+      setProgress(40, 'Reading project structure...');
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -236,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(errMsg);
       }
       
+      setProgress(65, 'Analyzing repository data...');
       const data = await response.json();
       currentProject = data;
       
@@ -284,10 +289,15 @@ document.addEventListener('DOMContentLoaded', () => {
         };
       }
       renderChat();
+      setProgress(90, 'Parsing strategy and posts...');
+      await new Promise(r => setTimeout(r, 200));
+      setProgress(100, 'Complete!');
+      setTimeout(() => hideProgress(), 800);
       showToast(`Analysis complete for ${currentProject.projectName}`, 3000);
 
     } catch (err) {
       console.error(err);
+      hideProgress();
       projectDesc.textContent = err.message || 'Analysis failed. Make sure the local path or GitHub URL is correct.';
     } finally {
       analyzeBtn.classList.remove('loading');
@@ -356,14 +366,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Toast notification helper
-  function showToast(message, duration = 3000) {
+  function showToast(message, duration = 3000, undoCallback) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.textContent = message;
+    
+    const msgSpan = document.createElement('span');
+    msgSpan.textContent = message;
+    toast.appendChild(msgSpan);
+    
+    if (typeof undoCallback === 'function') {
+      const undoBtn = document.createElement('button');
+      undoBtn.className = 'toast-undo-btn';
+      undoBtn.textContent = 'Undo';
+      undoBtn.addEventListener('click', () => {
+        undoCallback();
+        toast.classList.add('toast-leaving');
+        toast.addEventListener('animationend', () => toast.remove());
+        clearTimeout(removeTimer);
+      });
+      toast.appendChild(undoBtn);
+    }
+    
     container.appendChild(toast);
-    setTimeout(() => {
+    const removeTimer = setTimeout(() => {
       toast.classList.add('toast-leaving');
       toast.addEventListener('animationend', () => toast.remove());
     }, duration);
@@ -718,10 +745,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskName = task ? task.title : 'this task';
     const confirmed = await showConfirmModal('Delete Task', `Are you sure you want to delete "${taskName}"?`);
     if (!confirmed) return;
+    const deletedTaskIndex = currentProject.tasks.findIndex(t => t.id === id);
+    const deletedTask = currentProject.tasks[deletedTaskIndex];
     currentProject.tasks = currentProject.tasks.filter(t => t.id !== id);
     saveTasks();
     renderTasks();
-    showToast('Task deleted', 2000);
+    showToast('Task deleted', 5000, () => {
+      if (deletedTask) {
+        currentProject.tasks.splice(deletedTaskIndex, 0, deletedTask);
+        saveTasks();
+        renderTasks();
+        showToast('Task restored', 2000);
+      }
+    });
   }
 
   function saveTasks() {
