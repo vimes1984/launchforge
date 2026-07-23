@@ -906,16 +906,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Show empty state placeholders if no tasks in a column
-    if (!todoList.children.length) {
-      todoList.appendChild(createEmptyState('No tasks yet. Add one below!'));
+    if (filterText && currentProject.tasks.length > 0 && filteredTasks.length === 0) {
+      todoList.appendChild(createEmptyState('No tasks match "' + filterText + '" in any column'));
+      progressList.appendChild(createEmptyState(''));
+      doneList.appendChild(createEmptyState(''));
+    } else {
+      if (!todoList.children.length) {
+        todoList.appendChild(createEmptyState('No tasks yet. Add one below!'));
+      }
+      if (!progressList.children.length) {
+        progressList.appendChild(createEmptyState('Move tasks here when working on them.'));
+      }
+      if (!doneList.children.length) {
+        doneList.appendChild(createEmptyState('Completed tasks will appear here.'));
+      }
     }
-    if (!progressList.children.length) {
-      progressList.appendChild(createEmptyState('Move tasks here when working on them.'));
-    }
-    if (!doneList.children.length) {
-      doneList.appendChild(createEmptyState('Completed tasks will appear here.'));
-    }
-  }
 
   function getPrevStatus(status) {
     if (status === 'progress') return 'todo';
