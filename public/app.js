@@ -651,6 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const controls = document.createElement('div');
       controls.className = 'task-controls';
+      controls.addEventListener('click', (e) => e.stopPropagation());
       
       if (task.status !== 'todo') {
         const leftBtn = document.createElement('button');
@@ -659,7 +660,7 @@ document.addEventListener('DOMContentLoaded', () => {
         leftBtn.title = 'Move to previous column';
         leftBtn.setAttribute('aria-label', 'Move task to previous status column');
         leftBtn.textContent = '◀';
-        leftBtn.addEventListener('click', () => moveTask(task.id, getPrevStatus(task.status)));
+        leftBtn.addEventListener('click', (e) => { e.stopPropagation(); moveTask(task.id, getPrevStatus(task.status)); });
         controls.appendChild(leftBtn);
       }
       
@@ -670,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rightBtn.title = 'Move to next column';
         rightBtn.setAttribute('aria-label', 'Move task to next status column');
         rightBtn.textContent = '➔';
-        rightBtn.addEventListener('click', () => moveTask(task.id, getNextStatus(task.status)));
+        rightBtn.addEventListener('click', (e) => { e.stopPropagation(); moveTask(task.id, getNextStatus(task.status)); });
         controls.appendChild(rightBtn);
       }
       
@@ -680,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
       delBtn.title = 'Delete task';
       delBtn.setAttribute('aria-label', 'Delete this task');
       delBtn.textContent = '🗑️';
-      delBtn.addEventListener('click', () => deleteTask(task.id));
+      delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteTask(task.id); });
       controls.appendChild(delBtn);
       
       card.appendChild(controls);
