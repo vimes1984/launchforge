@@ -779,6 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
       card.textContent = task.title;
       card.title = 'Drag to reorder. Double-click to rename.';
       card.dataset.taskId = task.id;
+      card.dataset.taskStatus = task.status;
       
       // Drag-and-drop for task reordering
       card.addEventListener('dragstart', (e) => {
