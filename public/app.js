@@ -1598,6 +1598,20 @@ document.addEventListener('DOMContentLoaded', () => {
     location.reload();
   });
 
+  // Fullscreen panel toggle
+  function toggleFullscreen(panelId, btnId) {
+    const panel = document.getElementById(panelId);
+    const btn = document.getElementById(btnId);
+    if (!panel || !btn) return;
+    panel.classList.toggle('fullscreen');
+    btn.classList.toggle('active');
+    btn.title = panel.classList.contains('fullscreen') ? 'Exit fullscreen' : 'Toggle fullscreen';
+  }
+
+  document.getElementById('fsLeftPanel')?.addEventListener('click', () => {
+    toggleFullscreen('leftPanel', 'fsLeftPanel');
+  });
+
   // Real-time clock update
   function updateClock() {
     const clockEl = document.getElementById('headerClock');

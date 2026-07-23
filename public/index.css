@@ -484,6 +484,38 @@ button {
   text-transform: uppercase;
 }
 
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fullscreen-btn {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.fullscreen-btn:hover {
+  background: var(--button-hover-bg);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.fullscreen-btn.active {
+  background: var(--primary-glow-dim);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
 /* Tabs */
 .tab-container {
   display: flex;
