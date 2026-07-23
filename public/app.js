@@ -596,10 +596,16 @@ document.addEventListener('DOMContentLoaded', () => {
       chatMessages.removeChild(typingBubble);
       
       // Save assistant reply
-      chatHistories[activeAgent].push({ role: 'assistant', content: data.reply });
+      chatHistories[activeAgent].push({ role: 'assistant', content: data.reply, ts: formatTimestamp() });
       if (chatHistories[activeAgent].length > 100) {
         chatHistories[activeAgent] = chatHistories[activeAgent].slice(-100);
       }
+
+      // Track server-side conversation ID for state continuity
+      if (data.conversationId) {
+        conversationIds[activeAgent] = data.conversationId;
+      }
+
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
       localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
