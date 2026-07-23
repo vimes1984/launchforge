@@ -1,4 +1,7 @@
 // LaunchForge App Client Logic
+const APP_VERSION = '2.0.0';
+const BUILD_DATE = new Date().toISOString().slice(0, 10);
+console.log(`🚀 LaunchForge v${APP_VERSION} (build ${BUILD_DATE})`);
 
 // Crash recovery — show error boundary UI on unhandled errors
 window.addEventListener('error', (e) => {
