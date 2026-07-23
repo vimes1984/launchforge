@@ -736,11 +736,50 @@ document.addEventListener('DOMContentLoaded', () => {
     progressList.innerHTML = '';
     doneList.innerHTML = '';
     
+    // Set up drag-drop zones
+    [todoList, progressList, doneList].forEach(list => {
+      if (list.dataset.dropInit) return;
+      list.dataset.dropInit = '1';
+      list.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        list.classList.add('drag-over');
+      });
+      list.addEventListener('dragleave', () => {
+        list.classList.remove('drag-over');
+      });
+      list.addEventListener('drop', (e) => {
+        e.preventDefault();
+        list.classList.remove('drag-over');
+        const taskId = e.dataTransfer.getData('text/plain');
+        const targetStatus = list.id === 'todo-tasks' ? 'todo' : list.id === 'progress-tasks' ? 'progress' : 'done';
+        const task = currentProject.tasks.find(t => t.id === taskId);
+        if (task && task.status !== targetStatus) {
+          task.status = targetStatus;
+          saveTasks();
+          renderTasks();
+        }
+      });
+    });
+    
     currentProject.tasks.forEach(task => {
       const card = document.createElement('div');
       card.className = 'task-card';
+      card.draggable = true;
       card.textContent = task.title;
-      card.title = 'Double-click to rename';
+      card.title = 'Drag to reorder. Double-click to rename.';
+      card.dataset.taskId = task.id;
+      
+      // Drag-and-drop for task reordering
+      card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', task.id);
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        document.querySelectorAll('.task-list').forEach(l => l.classList.remove('drag-over'));
+      });
       
       // Double-click to rename task
       card.addEventListener('dblclick', () => {
