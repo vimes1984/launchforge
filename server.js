@@ -71,9 +71,13 @@ async function tryReadFile(filePath) {
 
 // Analyze repository files
 app.post('/api/analyze', async (req, res) => {
-  const { repoPath } = req.body;
+  const rawRepoPath = req.body.repoPath;
+  const repoPath = rawRepoPath ? rawRepoPath.trim() : rawRepoPath;
   if (!repoPath) {
     return res.status(400).json({ error: 'repoPath is required' });
+  }
+  if (repoPath.length > 4096) {
+    return res.status(400).json({ error: 'repoPath exceeds maximum length of 4096 characters' });
   }
 
   let resolvedPath = '';
@@ -271,15 +275,42 @@ app.post('/api/chat', async (req, res) => {
       ]
     };
 
-    const response = await fetch(endpoint, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetchWithRetry(endpoint, {
       method: 'POST',
       headers,
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      const errMsg = await response.text();
+      const contentType = response.headers.get('content-type') || '';
+      let errMsg;
+      if (contentType.includes('application/json')) {
+        try {
+          const errJson = await response.json();
+          errMsg = errJson.error?.message || JSON.stringify(errJson);
+        } catch {
+          errMsg = 'Unknown JSON error';
+        }
+      } else {
+        errMsg = await response.text();
+        if (errMsg.trim().startsWith('<!')) {
+          errMsg = `Gateway returned HTTP ${response.status} (non-JSON response)`;
+        }
+      }
       return res.status(response.status).json({ error: `OpenClaw returned error: ${errMsg}` });
+    }
+
+    const responseContentType = response.headers.get('content-type') || '';
+    if (!responseContentType.includes('application/json') && !responseContentType.includes('text/event-stream')) {
+      const text = await response.text();
+      console.error('Non-JSON response from gateway:', text.slice(0, 300));
+      return res.status(502).json({ error: 'Gateway returned unexpected response format.' });
     }
 
     const responseData = await response.json();
@@ -287,6 +318,9 @@ app.post('/api/chat', async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error('Agent chat error:', err);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Gateway request timed out after 30 seconds.' });
+    }
     res.status(500).json({ error: 'Failed to communicate with local OpenClaw gateway.' });
   }
 });

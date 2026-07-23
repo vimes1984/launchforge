@@ -322,7 +322,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function saveTasks() {
-    localStorage.setItem(`launchforge-tasks-${repoPathInput.value}`, JSON.stringify(currentProject.tasks));
+    const path = getRepoPath() || currentProject.name || 'default';
+    localStorage.setItem(`launchforge-tasks-${path}`, JSON.stringify(currentProject.tasks));
   }
 
   addTaskBtn.addEventListener('click', () => {
@@ -407,7 +408,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Save assistant reply
       chatHistories[activeAgent].push({ role: 'assistant', content: data.reply });
-      localStorage.setItem(`launchforge-chat-${repoPathInput.value}`, JSON.stringify(chatHistories));
+      const chatKey = `launchforge-chat-${getRepoPath() || currentProject.name || 'default'}`;
+      localStorage.setItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
       
     } catch (err) {
