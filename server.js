@@ -189,6 +189,7 @@ app.post('/api/analyze', async (req, res) => {
         cloneUrl = `https://github.com/${repoPath}.git`;
       }
       tempDir = path.join(os.tmpdir(), `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });\n      // Create temp directory with restricted permissions (owner-only)\n      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });
       
       const cleanPath = repoPath.replace(/\.git$/, '');
       defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
@@ -211,18 +212,20 @@ app.post('/api/analyze', async (req, res) => {
         return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
       }
     } else {
+      // Resolve path first
+      const absolutePath = path.resolve(repoPath);
+
       // Symlink protection: reject symlinked directories (prevents symlink-based traversal)
       try {
         const stat = lstatSync(absolutePath);
         if (stat.isSymbolicLink()) {
-          return res.status(400).json({ error: "Invalid repoPath: symlinked directories are not allowed" });
+          return res.status(400).json({ error: 'Invalid repoPath: symlinked directories are not allowed' });
         }
       } catch (e) {
-        return res.status(400).json({ error: "Cannot access directory" });
+        return res.status(400).json({ error: 'Cannot access directory' });
       }
 
-      // Resolve path and validate it stays within workspace (prevent traversal)
-      const absolutePath = path.resolve(repoPath);
+      // Validate the path stays within workspace (prevent traversal)
       if (!isPathSafe(absolutePath)) {
         return res.status(400).json({ error: 'Invalid repoPath: path traversal detected' });
       }
@@ -411,16 +414,43 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: `agentId must be one of: ${VALID_AGENTS.join(', ')} or empty` });
   }
 
+  // Agent identity metadata injected into the payload
+  const agentIdentity = {
+    strategist: { name: 'Strategist', role: 'Lead Business & Launch Strategist' },
+    copywriter: { name: 'Copywriter', role: 'Launch Copywriter' },
+    advisor: { name: 'Advisor', role: 'Cooperative Financial Advisor' }
+  };
+  const identity = agentIdentity[agentId] || { name: 'Assistant', role: 'AI Launch Assistant' };
+
   let systemPrompt = '';
   if (agentId === 'strategist') {
-    systemPrompt = `You are the Lead Business & Launch Strategist. You help developers convert software projects into viable cooperatives, businesses, or solar-punk initiatives. Guide the user through business models, logistics hubs, community building, and scaling strategies. Always structure your replies using beautiful Markdown and keep them actionable.`;
+    systemPrompt = `You are the Lead Business & Launch Strategist. You help developers convert software projects into viable cooperatives, businesses, or solar-punk initiatives. Guide the user through business models, logistics hubs, community building, and scaling strategies.
+
+## Response Format
+Always structure your replies using beautiful Markdown with clear sections (## Headers), bullet points, and bold emphasis where appropriate. Keep responses actionable and concise. Use tables for comparisons or data. End with 1-3 follow-up questions or suggested next steps to keep the conversation moving.`;
   } else if (agentId === 'copywriter') {
-    systemPrompt = `You are the Launch Copywriter. You help developers write copy that converts. You specialize in crafting Reddit posts (like r/solarpunk, r/selfhosted), Show HN comments, and local press releases. Provide pre-filled templates, hook lines, and feedback on their pitch draft.`;
+    systemPrompt = `You are the Launch Copywriter. You help developers write copy that converts. You specialize in crafting Reddit posts (like r/solarpunk, r/selfhosted), Show HN comments, and local press releases.
+
+## Response Format
+Provide pre-filled templates with placeholders marked in [brackets], hook lines, and friendly feedback on the user's pitch drafts. Use Markdown formatting with code blocks for template text. Always suggest which platform a given copy style works best for.`;
   } else if (agentId === 'advisor') {
-    systemPrompt = `You are the Cooperative Financial Advisor. You help developers optimize budget splits, logistics splits, pricing splits, and calculate cash-flow margins. Guide the user on cooperative economics, co-op credit models, dividends, and pricing structures. Keep calculations clear and structured in tables.`;
+    systemPrompt = `You are the Cooperative Financial Advisor. You help developers optimize budget splits, logistics splits, pricing splits, and calculate cash-flow margins. Guide the user on cooperative economics, co-op credit models, dividends, and pricing structures.
+
+## Response Format
+Keep calculations clear and structured in Markdown tables. Use ## sections for different financial scenarios. Include concrete numbers and percentage breakdowns. Explain the reasoning behind each recommendation.`;
   } else {
-    systemPrompt = `You are an AI Launch Assistant. Help the user launch and manage their business plan.`;
+    systemPrompt = `You are an AI Launch Assistant. Help the user launch and manage their business plan.
+
+## Response Format
+Structure your replies using Markdown with clear sections. Keep answers practical and focused on actionable steps. Use bullet points for lists and bold for key takeaways.`;
   }
+
+  // Inject agent identity into payload metadata if supported by gateway
+  const agentMeta = {
+    agent_name: identity.name,
+    agent_role: identity.role,
+    agent_id: agentId || 'default'
+  };
 
   try {
     if (isCircuitOpen()) {
