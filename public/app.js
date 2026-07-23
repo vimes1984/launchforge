@@ -777,7 +777,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressFill = document.getElementById('taskProgressFill');
     const progressText = document.getElementById('taskProgressText');
     if (progressFill) progressFill.style.width = progressPct + '%';
-    if (progressText) progressText.textContent = progressPct + '% complete (' + doneTasksCount + '/' + totalTasks + ')';
+    if (progressText) {
+      progressText.textContent = progressPct + '% complete (' + doneTasksCount + '/' + totalTasks + ')';
+      progressText.classList.toggle('all-done', totalTasks > 0 && doneTasksCount === totalTasks);
+    }
+    if (progressFill) {
+      progressFill.classList.toggle('all-done', totalTasks > 0 && doneTasksCount === totalTasks);
+    }
+    if (totalTasks > 0 && doneTasksCount === totalTasks && !window._allDoneNotified) {
+      window._allDoneNotified = true;
+      showToast('🎉 All tasks complete! Great work!', 4000);
+    } else if (doneTasksCount < totalTasks) {
+      window._allDoneNotified = false;
+    }
 
     // Update document title with task summary
     const projectName = currentProject.projectName || currentProject.name || 'LaunchForge';
