@@ -773,9 +773,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Debounced localStorage save for tasks (batches writes)
+  let saveTasksTimer = null;
   function saveTasks() {
-    const path = loadedRepoPath || getRepoPath() || currentProject.name || 'default';
-    localStorage.setItem(`launchforge-tasks-${path}`, JSON.stringify(currentProject.tasks));
+    if (saveTasksTimer) clearTimeout(saveTasksTimer);
+    saveTasksTimer = setTimeout(() => {
+      const path = loadedRepoPath || getRepoPath() || currentProject.name || 'default';
+      localStorage.setItem(`launchforge-tasks-${path}`, JSON.stringify(currentProject.tasks));
+      saveTasksTimer = null;
+    }, 300);
   }
 
   function addNewTask() {
@@ -1049,23 +1055,69 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const config = agentConfigs[activeAgent] || {};
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentId: activeAgent,
-          messages: trimmedHistory,
-          conversationId: conversationIds[activeAgent],
-          temperature: config.temperature,
-          maxTokens: config.maxTokens,
-          model: config.model
-        }),
-        signal: controller.signal
-      });
+      const requestBody = {
+        agentId: activeAgent,
+        messages: trimmedHistory,
+        conversationId: conversationIds[activeAgent],
+        temperature: config.temperature,
+        maxTokens: config.maxTokens,
+        model: config.model
+      };
 
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
+      let fullAssistantReply;
+
+      if (streamingEnabled) {
+        // Use streaming endpoint for real-time response
+        const streamResponse = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!streamResponse.ok) throw new Error('Stream request failed');
+
+        const reader = streamResponse.body.getReader();
+        const decoder = new TextDecoder();
+        fullAssistantReply = '';
+
+        // Read the SSE stream
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                fullAssistantReply += data.content;
+                // Update typing bubble with partial content
+                const typingEl = chatMessages.querySelector('.typing');
+                if (typingEl) {
+                  typingEl.textContent = fullAssistantReply;
+                  chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+              } else if (data.done) {
+                // Final response
+              } else if (data.error) {
+                throw new Error(data.error);
+              }
+            } catch {}
+          }
+        }
+      } else {
+        // Non-streaming: standard fetch
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
         let errData;
         try {
           errData = await response.json();
