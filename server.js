@@ -184,6 +184,32 @@ app.post('/api/analyze', async (req, res) => {
   }
 });
 
+// Helper: fetch with exponential backoff (up to 3 retries)
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers.get('retry-after') || '5', 10);
+        const waitMs = Math.min(retryAfter * 1000, 30000);
+        console.warn(`Gateway rate-limited, retrying after ${waitMs}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 500, 15000);
+        console.warn(`Gateway fetch attempt ${attempt + 1} failed, retrying in ${Math.round(backoffMs)}ms: ${err.message}`);
+        await new Promise(r => setTimeout(r, backoffMs));
+      }
+    }
+  }
+  throw lastError || new Error('Max retries exceeded');
+}
+
 // Proxy agent prompts to local OpenClaw gateway
 app.post('/api/chat', async (req, res) => {
   const { agentId, messages } = req.body;
