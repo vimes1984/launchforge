@@ -228,6 +228,20 @@ app.use('/api/analyze', requireJsonContent);
 app.use('/api/chat', strictLimiter);
 app.use('/api/chat', requireJsonContent);
 
+// Auth middleware for /api/chat - requires a valid gateway token
+app.use('/api/chat', async (req, res, next) => {
+  const authHeader = req.headers['authorization'] || '';
+  // If no auth header, check if gateway token is required (enabled by env var)
+  if (process.env.REQUIRE_AUTH === 'true' || process.env.REQUIRE_AUTH === '1') {
+    if (!authHeader.startsWith('Bearer ')) {
+      const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+      recordFailedAuth(ip);
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+  }
+  next();
+});
+
 // Resolve OpenClaw gateway connection details dynamically
 async function getOpenClawConfig() {
   const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
@@ -763,26 +777,17 @@ async function startServer() {
     process.exit(1);
   }
 
-  // Detect port conflict before binding
-  const portInUse = await new Promise((resolve) => {
-    const tester = require('node:net').createServer();
-    tester.once('error', (err) => {
-      if (err.code === 'EADDRINUSE') resolve(true);
-      else resolve(false);
-    });
-    tester.once('listening', () => {
-      tester.close();
-      resolve(false);
-    });
-    tester.listen(PORT);
-  });
-  if (portInUse) {
-    console.error(`Port ${PORT} is already in use. LaunchForge cannot start.`);
-    process.exit(1);
-  }
-
   const server = app.listen(PORT, () => {
     console.log(`LaunchForge running at http://localhost:${PORT}`);
+  });
+  // Handle EADDRINUSE emitted as error event (port conflict)
+  server.once('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use. LaunchForge cannot start.`);
+    } else {
+      console.error(`Failed to start server: ${err.message}`);
+    }
+    process.exit(1);
   });
 
   // Graceful shutdown handler

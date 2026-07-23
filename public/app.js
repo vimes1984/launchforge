@@ -470,15 +470,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function formatTimestamp(date) {
+    const d = date || new Date();
+    const hours = d.getHours().toString().padStart(2, '0');
+    const mins = d.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${mins}`;
+  }
+
+  function appendChatMessage(msg) {
+    const bubble = document.createElement('div');
+    bubble.className = `message ${msg.role}`;
+    bubble.textContent = msg.content;
+    
+    const ts = document.createElement('span');
+    ts.className = 'message-timestamp';
+    ts.textContent = msg.ts || formatTimestamp();
+    bubble.appendChild(ts);
+    
+    chatMessages.appendChild(bubble);
+  }
+
   function renderChat() {
     chatMessages.innerHTML = '';
     const history = chatHistories[activeAgent];
-    history.forEach(msg => {
-      const bubble = document.createElement('div');
-      bubble.className = `message ${msg.role}`;
-      bubble.textContent = msg.content;
-      chatMessages.appendChild(bubble);
-    });
+    history.forEach(msg => appendChatMessage(msg));
     chatMessages.scrollTop = chatMessages.scrollHeight;
     updateChatStats();
   }
@@ -504,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sendChatBtn.disabled = true;
     
     // Add User bubble
-    chatHistories[activeAgent].push({ role: 'user', content: val });
+    chatHistories[activeAgent].push({ role: 'user', content: val, ts: formatTimestamp() });
     // Cap history to prevent unbounded memory growth
     if (chatHistories[activeAgent].length > 100) {
       chatHistories[activeAgent] = chatHistories[activeAgent].slice(-100);
