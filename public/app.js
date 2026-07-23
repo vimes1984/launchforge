@@ -56,9 +56,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendChatBtn = document.getElementById('sendChatBtn');
 
   // Simple Markdown Parser
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
   function parseMarkdown(md) {
     if (!md) return '';
-    let html = md
+    // Escape HTML to prevent XSS, then apply markdown transforms
+    let html = escapeHtml(md)
       .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>')
       .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
       .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
