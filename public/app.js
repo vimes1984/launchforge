@@ -711,6 +711,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendChatMessage();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      chatInput.value = '';
+      chatInput.blur();
     }
   });
 
