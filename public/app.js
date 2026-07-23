@@ -1461,4 +1461,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   checkGatewayStatus();
   setInterval(checkGatewayStatus, 30000);
+
+  // Global error handler for unhandled promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    showToast('An unexpected error occurred. Check console for details.', 4000);
+  });
+
+  // Global error handler for runtime exceptions
+  window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error || event.message);
+    showToast('An unexpected error occurred. Check console for details.', 4000);
+  });
 });
