@@ -341,7 +341,8 @@
                   </div>
                 </div>
                 <div class="chat-input-area">
-                  <textarea id="chatInput" placeholder="Ask the agent a question... (e.g. 'Help me draft a strategy')" rows="2"></textarea>
+                  <textarea id="chatInput" placeholder="Ask the agent a question... (e.g. 'Help me draft a strategy')" rows="2" maxlength="4000"></textarea>
+                  <span class="char-counter" id="charCounter"></span>
                   <button id="sendChatBtn" class="primary-btn" type="button">Ask</button>
                 </div>
               </div>

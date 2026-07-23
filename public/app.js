@@ -926,6 +926,16 @@ document.addEventListener('DOMContentLoaded', () => {
       activeAgent = btn.getAttribute('data-agent');
       if (followUpSuggestions) followUpSuggestions.style.display = 'none';
       loadAgentSettings();
+      // Show context transfer note when switching mid-conversation
+      const msgCount = chatHistories[activeAgent].filter(m => m.role === 'user').length;
+      if (msgCount > 0) {
+        const note = document.createElement('div');
+        note.className = 'message system';
+        note.textContent = `Switched to ${activeAgent}. Ask anything about your project.`;
+        note.style.fontSize = '0.75rem';
+        note.style.padding = '0.3rem 0.6rem';
+        chatMessages.appendChild(note);
+      }
       renderChat();
       updateChatStats();
     });
@@ -1421,10 +1431,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   sendChatBtn.addEventListener('click', sendChatMessage);
-  // Auto-resize chat textarea as content grows
+  // Auto-resize chat textarea as content grows + character counter
+  const charCounter = document.getElementById('charCounter');
+  const MAX_CHARS = 4000;
   chatInput.addEventListener('input', () => {
     chatInput.style.height = 'auto';
     chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
+    if (charCounter) {
+      const remaining = MAX_CHARS - chatInput.value.length;
+      charCounter.textContent = remaining < 100 ? remaining + ' left' : '';
+      charCounter.className = 'char-counter' + (remaining < 20 ? ' danger' : remaining < 100 ? ' warning' : '');
+    }
   });
 
   chatInput.addEventListener('keydown', (e) => {
