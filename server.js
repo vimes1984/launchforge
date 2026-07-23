@@ -8,6 +8,7 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import compression from 'compression';
 import http from 'node:http';
 import https from 'node:https';
 
@@ -43,6 +44,7 @@ function corsOriginCheck(origin, cb) {
   cb(new Error("Not allowed by CORS"));
 }
 app.use(cors({ origin: corsOriginCheck }));
+app.use(compression());
 
 // Request ID middleware — assigns unique ID to every request
 app.use((req, res, next) => {
@@ -612,6 +614,47 @@ setInterval(() => {
 const responseCache = new Map();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+// Shared helper: build system prompt by agent ID
+function buildSystemPrompt(agentId) {
+  if (agentId === 'strategist') {
+    return `You are the Lead Business & Launch Strategist. You help developers convert software projects into viable cooperatives, businesses, or solar-punk initiatives. Guide the user through business models, logistics hubs, community building, and scaling strategies.
+
+## Response Format
+Always structure your replies using beautiful Markdown with clear sections (## Headers), bullet points, and bold emphasis where appropriate. Keep responses actionable and concise. Use tables for comparisons or data. End with 1-3 follow-up questions or suggested next steps to keep the conversation moving.`;
+  }
+  if (agentId === 'copywriter') {
+    return `You are the Launch Copywriter. You help developers write copy that converts. You specialize in crafting Reddit posts (like r/solarpunk, r/selfhosted), Show HN comments, and local press releases.
+
+## Response Format
+Provide pre-filled templates with placeholders marked in [brackets], hook lines, and friendly feedback on the user's pitch drafts. Use Markdown formatting with code blocks for template text. Always suggest which platform a given copy style works best for.`;
+  }
+  if (agentId === 'advisor') {
+    return `You are the Cooperative Financial Advisor. You help developers optimize budget splits, logistics splits, pricing splits, and calculate cash-flow margins. Guide the user on cooperative economics, co-op credit models, dividends, and pricing structures.
+
+## Response Format
+Keep calculations clear and structured in Markdown tables. Use ## sections for different financial scenarios. Include concrete numbers and percentage breakdowns. Explain the reasoning behind each recommendation.`;
+  }
+  return `You are an AI Launch Assistant. Help the user launch and manage their business plan.
+
+## Response Format
+Structure your replies using Markdown with clear sections. Keep answers practical and focused on actionable steps. Use bullet points for lists and bold for key takeaways.`;
+}
+
+// Shared helper: build agent identity metadata
+function buildAgentMeta(agentId) {
+  const identities = {
+    strategist: { name: 'Strategist', role: 'Lead Business & Launch Strategist' },
+    copywriter: { name: 'Copywriter', role: 'Launch Copywriter' },
+    advisor: { name: 'Advisor', role: 'Cooperative Financial Advisor' }
+  };
+  const identity = identities[agentId] || { name: 'Assistant', role: 'AI Launch Assistant' };
+  return {
+    agent_name: identity.name,
+    agent_role: identity.role,
+    agent_id: agentId || 'default'
+  };
+}
+
 // Agent usage analytics
 const agentAnalytics = {
   queries: { strategist: 0, copywriter: 0, advisor: 0, default: 0 },
@@ -649,6 +692,20 @@ app.post('/api/chat/stream', async (req, res) => {
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive'
   });
+
+  // Track analytics
+  const agentKey = agentId && ['strategist', 'copywriter', 'advisor'].includes(agentId) ? agentId : 'default';
+  agentAnalytics.queries[agentKey]++;
+  const queryStartTime = Date.now();
+
+  const convId = conversationId || `conv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const conversation = getOrCreateConversation(convId, agentId || 'default');
+  for (const msg of messages) {
+    if (msg.role === 'user' || msg.role === 'assistant') {
+      conversation.messages.push(msg);
+      conversation.messageCount++;
+    }
+  }
 
   const systemPrompt = buildSystemPrompt(agentId);
   const agentMeta = buildAgentMeta(agentId);
@@ -715,9 +772,17 @@ app.post('/api/chat/stream', async (req, res) => {
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true, conversationId, fullReply })}\n\n`);
+    // Store full reply in conversation
+    conversation.messages.push({ role: 'assistant', content: fullReply });
+    conversation.messageCount++;
+
+    agentAnalytics.totalResponseTime += Date.now() - queryStartTime;
+    agentAnalytics.totalResponses++;
+
+    res.write(`data: ${JSON.stringify({ done: true, conversationId: convId, fullReply })}\n\n`);
     res.end();
   } catch (err) {
+    agentAnalytics.errors[agentKey]++;
     console.error('Streaming error:', err);
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.end();
@@ -776,39 +841,8 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: `agentId must be one of: ${VALID_AGENTS.join(', ')} or empty` });
   }
 
-  // Agent identity metadata injected into the payload
-  const agentIdentity = {
-    strategist: { name: 'Strategist', role: 'Lead Business & Launch Strategist' },
-    copywriter: { name: 'Copywriter', role: 'Launch Copywriter' },
-    advisor: { name: 'Advisor', role: 'Cooperative Financial Advisor' }
-  };
-  const identity = agentIdentity[agentId] || { name: 'Assistant', role: 'AI Launch Assistant' };
-
-  let systemPrompt = '';
-  if (agentId === 'strategist') {
-    systemPrompt = `You are the Lead Business & Launch Strategist. You help developers convert software projects into viable cooperatives, businesses, or solar-punk initiatives. Guide the user through business models, logistics hubs, community building, and scaling strategies.
-
-## Response Format
-Always structure your replies using beautiful Markdown with clear sections (## Headers), bullet points, and bold emphasis where appropriate. Keep responses actionable and concise. Use tables for comparisons or data. End with 1-3 follow-up questions or suggested next steps to keep the conversation moving.`;
-  } else if (agentId === 'copywriter') {
-    systemPrompt = `You are the Launch Copywriter. You help developers write copy that converts. You specialize in crafting Reddit posts (like r/solarpunk, r/selfhosted), Show HN comments, and local press releases.
-
-## Response Format
-Provide pre-filled templates with placeholders marked in [brackets], hook lines, and friendly feedback on the user's pitch drafts. Use Markdown formatting with code blocks for template text. Always suggest which platform a given copy style works best for.`;
-  } else if (agentId === 'advisor') {
-    systemPrompt = `You are the Cooperative Financial Advisor. You help developers optimize budget splits, logistics splits, pricing splits, and calculate cash-flow margins. Guide the user on cooperative economics, co-op credit models, dividends, and pricing structures.
-
-## Response Format
-Keep calculations clear and structured in Markdown tables. Use ## sections for different financial scenarios. Include concrete numbers and percentage breakdowns. Explain the reasoning behind each recommendation.`;
-  } else {
-    systemPrompt = `You are an AI Launch Assistant. Help the user launch and manage their business plan.
-
-## Response Format
-Structure your replies using Markdown with clear sections. Keep answers practical and focused on actionable steps. Use bullet points for lists and bold for key takeaways.`;
-  }
-
-  // Inject agent identity into payload metadata if supported by gateway
-  const agentMeta = {
+  const systemPrompt = buildSystemPrompt(agentId);
+  const agentMeta = buildAgentMeta(agentId);
     agent_name: identity.name,
     agent_role: identity.role,
     agent_id: agentId || 'default'

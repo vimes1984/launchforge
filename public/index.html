@@ -32,6 +32,10 @@
         <input type="text" id="repoPathInput" placeholder="Local path or GitHub URL (e.g. vimes1984/coop-harvest)" value="/home/chris/websites/coop-harvest" maxlength="4096">
         <button id="analyzeBtn" class="primary-btn" type="button">Analyze Repo</button>
       </div>
+      <div class="header-status">
+        <span class="status-dot" id="statusDot" title="Gateway status"></span>
+        <span class="header-clock" id="headerClock"></span>
+      </div>
     </header>
     <div class="progress-bar-container hidden" id="progressBarContainer">
       <div class="progress-bar-outer">

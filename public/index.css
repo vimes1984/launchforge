@@ -230,6 +230,50 @@ body {
   box-shadow: 0 0 10px var(--primary-glow-dim);
 }
 
+/* Header status and clock */
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.3s;
+}
+
+.status-dot.online {
+  background: var(--accent-color);
+  box-shadow: 0 0 8px var(--accent-color);
+}
+
+.status-dot.offline {
+  background: hsl(0, 70%, 50%);
+  box-shadow: 0 0 8px hsla(0, 70%, 50%, 0.5);
+}
+
+.status-dot.checking {
+  background: hsl(45, 100%, 50%);
+  box-shadow: 0 0 8px hsla(45, 100%, 50%, 0.5);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.header-clock {
+  font-family: var(--font-family-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 /* Focus-visible keyboard navigation */
 :focus-visible {
   outline: 2px solid var(--accent-color);
