@@ -220,9 +220,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Financial calculations
   function renderFinancials() {
-    const count = parseInt(crateCount.value);
-    const price = parseInt(cratePrice.value);
-    const farmPct = parseInt(farmSplit.value);
+    const rawCount = parseInt(crateCount.value, 10);
+    const rawPrice = parseInt(cratePrice.value, 10);
+    const rawFarmPct = parseInt(farmSplit.value, 10);
+    const count = isNaN(rawCount) || rawCount < 0 ? 0 : rawCount;
+    const price = isNaN(rawPrice) || rawPrice < 0 ? 0 : rawPrice;
+    const farmPct = isNaN(rawFarmPct) || rawFarmPct < 0 ? 0 : Math.min(rawFarmPct, 100);
     
     // Split logic matching the 82/13/5 ratio dynamically
     const remaining = 100 - farmPct;
