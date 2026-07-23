@@ -1255,4 +1255,36 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // Real-time clock update
+  function updateClock() {
+    const clockEl = document.getElementById('headerClock');
+    if (!clockEl) return;
+    const now = new Date();
+    clockEl.textContent = now.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' });
+  }
+  updateClock();
+  setInterval(updateClock, 30000);
+
+  // Gateway connection status indicator
+  async function checkGatewayStatus() {
+    const dot = document.getElementById('statusDot');
+    if (!dot) return;
+    dot.className = 'status-dot checking';
+    try {
+      const resp = await fetch('/api/gateway/health', { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        dot.className = 'status-dot online';
+        dot.title = 'Gateway online';
+      } else {
+        dot.className = 'status-dot offline';
+        dot.title = 'Gateway error: ' + resp.status;
+      }
+    } catch {
+      dot.className = 'status-dot offline';
+      dot.title = 'Gateway unreachable';
+    }
+  }
+  checkGatewayStatus();
+  setInterval(checkGatewayStatus, 30000);
 });
