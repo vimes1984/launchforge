@@ -614,30 +614,33 @@ setInterval(() => {
 const responseCache = new Map();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
-// Shared helper: build system prompt by agent ID
-function buildSystemPrompt(agentId) {
+// Shared helper: build system prompt by agent ID (with optional language)
+function buildSystemPrompt(agentId, language) {
+  const langSuffix = language && language !== 'en' 
+    ? `\n\nIMPORTANT: Respond primarily in the language code "${language}". Use that language for all explanations, suggestions, and actionable content. Technical terms and names can stay in English when appropriate.`
+    : '';
   if (agentId === 'strategist') {
     return `You are the Lead Business & Launch Strategist. You help developers convert software projects into viable cooperatives, businesses, or solar-punk initiatives. Guide the user through business models, logistics hubs, community building, and scaling strategies.
 
 ## Response Format
-Always structure your replies using beautiful Markdown with clear sections (## Headers), bullet points, and bold emphasis where appropriate. Keep responses actionable and concise. Use tables for comparisons or data. End with 1-3 follow-up questions or suggested next steps to keep the conversation moving.`;
+Always structure your replies using beautiful Markdown with clear sections (## Headers), bullet points, and bold emphasis where appropriate. Keep responses actionable and concise. Use tables for comparisons or data. End with 1-3 follow-up questions or suggested next steps to keep the conversation moving.${langSuffix}`;
   }
   if (agentId === 'copywriter') {
     return `You are the Launch Copywriter. You help developers write copy that converts. You specialize in crafting Reddit posts (like r/solarpunk, r/selfhosted), Show HN comments, and local press releases.
 
 ## Response Format
-Provide pre-filled templates with placeholders marked in [brackets], hook lines, and friendly feedback on the user's pitch drafts. Use Markdown formatting with code blocks for template text. Always suggest which platform a given copy style works best for.`;
+Provide pre-filled templates with placeholders marked in [brackets], hook lines, and friendly feedback on the user's pitch drafts. Use Markdown formatting with code blocks for template text. Always suggest which platform a given copy style works best for.${langSuffix}`;
   }
   if (agentId === 'advisor') {
     return `You are the Cooperative Financial Advisor. You help developers optimize budget splits, logistics splits, pricing splits, and calculate cash-flow margins. Guide the user on cooperative economics, co-op credit models, dividends, and pricing structures.
 
 ## Response Format
-Keep calculations clear and structured in Markdown tables. Use ## sections for different financial scenarios. Include concrete numbers and percentage breakdowns. Explain the reasoning behind each recommendation.`;
+Keep calculations clear and structured in Markdown tables. Use ## sections for different financial scenarios. Include concrete numbers and percentage breakdowns. Explain the reasoning behind each recommendation.${langSuffix}`;
   }
   return `You are an AI Launch Assistant. Help the user launch and manage their business plan.
 
 ## Response Format
-Structure your replies using Markdown with clear sections. Keep answers practical and focused on actionable steps. Use bullet points for lists and bold for key takeaways.`;
+Structure your replies using Markdown with clear sections. Keep answers practical and focused on actionable steps. Use bullet points for lists and bold for key takeaways.${langSuffix}`;
 }
 
 // Shared helper: build agent identity metadata
@@ -681,7 +684,7 @@ app.get('/api/agent/analytics', (req, res) => {
 // Proxy agent prompts to local OpenClaw gateway
 // Streaming chat endpoint using SSE
 app.post('/api/chat/stream', async (req, res) => {
-  const { agentId, messages, conversationId, temperature, maxTokens, model } = req.body;
+  const { agentId, messages, conversationId, temperature, maxTokens, model, language } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
   }
@@ -707,7 +710,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
   }
 
-  const systemPrompt = buildSystemPrompt(agentId);
+  const systemPrompt = buildSystemPrompt(agentId, language);
   const agentMeta = buildAgentMeta(agentId);
 
   try {

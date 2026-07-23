@@ -1002,6 +1002,39 @@ button {
   border-color: var(--accent-color);
 }
 
+/* Input error states */
+input.input-error,
+textarea.input-error {
+  border-color: hsl(0, 70%, 50%) !important;
+  box-shadow: 0 0 10px hsla(0, 70%, 50%, 0.2) !important;
+}
+
+.error-banner {
+  background: hsla(0, 70%, 50%, 0.1);
+  border: 1px solid hsl(0, 70%, 50%);
+  color: hsl(0, 70%, 80%);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: errorShake 0.4s ease-out;
+}
+
+.error-banner.hidden {
+  display: none;
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
 /* Agent selector and chat style */
 .agent-selector-buttons {
   display: flex;

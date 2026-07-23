@@ -377,6 +377,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inner) inner.style.width = '0%';
   }
 
+  // Error banner helpers
+  function showError(message) {
+    const banner = document.getElementById('errorBanner');
+    if (!banner) return;
+    banner.textContent = message;
+    banner.classList.remove('hidden');
+    // Auto-scroll into view
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function clearError() {
+    const banner = document.getElementById('errorBanner');
+    if (banner) banner.classList.add('hidden');
+  }
+
   // Toast notification helper
   function showToast(message, duration = 3000, undoCallback) {
     const container = document.getElementById('toastContainer');
