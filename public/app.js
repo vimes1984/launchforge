@@ -1763,6 +1763,14 @@ document.addEventListener('DOMContentLoaded', () => {
   checkGatewayStatus();
   setInterval(checkGatewayStatus, 30000);
 
+  // Page visibility — pause background work when tab is hidden
+  let pageVisible = true;
+  document.addEventListener('visibilitychange', () => {
+    pageVisible = !document.hidden;
+    // Resume gateway health check immediately when tab becomes visible
+    if (pageVisible) checkGatewayStatus();
+  });
+
   // Global error handler for unhandled promise rejections
   window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled promise rejection:', event.reason);
