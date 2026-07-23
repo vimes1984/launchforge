@@ -22,6 +22,20 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;
+
+  /* Spacing & sizing tokens */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --space-xs: 0.35rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --shadow-sm: 0 4px 15px var(--primary-glow-dim);
+  --shadow-md: 0 6px 20px var(--primary-glow);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.5);
 }
 
 /* Skip to content link */

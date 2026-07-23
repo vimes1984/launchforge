@@ -773,13 +773,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Safe localStorage write with error handling
+  function safeSetItem(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+        console.warn('localStorage quota exceeded. Data may not persist.');
+        showToast('Storage full. Old data may not save.', 4000);
+      } else {
+        console.error('localStorage write failed:', e);
+      }
+    }
+  }
+
   // Debounced localStorage save for tasks (batches writes)
   let saveTasksTimer = null;
   function saveTasks() {
     if (saveTasksTimer) clearTimeout(saveTasksTimer);
     saveTasksTimer = setTimeout(() => {
       const path = loadedRepoPath || getRepoPath() || currentProject.name || 'default';
-      localStorage.setItem(`launchforge-tasks-${path}`, JSON.stringify(currentProject.tasks));
+      safeSetItem(`launchforge-tasks-${path}`, JSON.stringify(currentProject.tasks));
       saveTasksTimer = null;
     }, 300);
   }
@@ -968,7 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
       conversationIds[activeAgent] = null;
       if (followUpSuggestions) followUpSuggestions.style.display = 'none';
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
-      localStorage.setItem(chatKey, JSON.stringify(chatHistories));
+      safeSetItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
     });
   }
@@ -1187,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const chatKey = `launchforge-chat-${loadedRepoPath || getRepoPath() || currentProject.name || 'default'}`;
-      localStorage.setItem(chatKey, JSON.stringify(chatHistories));
+      safeSetItem(chatKey, JSON.stringify(chatHistories));
       renderChat();
       renderFollowUpSuggestions();
       
