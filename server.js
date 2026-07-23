@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import fs from 'node:fs/promises';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, lstatSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
@@ -205,7 +205,7 @@ app.post('/api/analyze', async (req, res) => {
     } else {
       // Symlink protection: reject symlinked directories (prevents symlink-based traversal)
       try {
-        const stat = fslib.lstatSync(absolutePath);
+        const stat = lstatSync(absolutePath);
         if (stat.isSymbolicLink()) {
           return res.status(400).json({ error: "Invalid repoPath: symlinked directories are not allowed" });
         }

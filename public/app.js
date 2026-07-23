@@ -160,7 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
       parsePitchCopy(currentProject.postsMarkdown);
       
       // Update Split visualizer
-      farmSplit.value = currentProject.financials.values[0];
+      if (currentProject.financials && currentProject.financials.values) {
+        farmSplit.value = currentProject.financials.values[0];
+      }
       
       renderFinancials();
       renderTasks();
