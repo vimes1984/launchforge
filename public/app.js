@@ -115,10 +115,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tab Logic
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
       
       btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
       const tabId = btn.getAttribute('data-tab');
       document.getElementById(`tab-${tabId}`).classList.add('active');
     });
@@ -270,10 +274,10 @@ document.addEventListener('DOMContentLoaded', () => {
     cratePriceVal.textContent = `€${price}`;
     farmSplitVal.textContent = `${farmPct}%`;
     
-    totVolume.textContent = `€${volume.toLocaleString()}`;
-    farmPayout.textContent = `€${farmVal.toLocaleString()}`;
-    logisticsPayout.textContent = `€${logisticsVal.toLocaleString()}`;
-    adminPayout.textContent = `€${adminVal.toLocaleString()}`;
+    totVolume.textContent = formatCurrency.format(volume);
+    farmPayout.textContent = formatCurrency.format(farmVal);
+    logisticsPayout.textContent = formatCurrency.format(logisticsVal);
+    adminPayout.textContent = formatCurrency.format(adminVal);
     
     // Update visual bars
     const farmSeg = document.querySelector('.farm-seg');
