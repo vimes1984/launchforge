@@ -78,12 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
       
     // Wrap list items
     html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
-    // Escape any remaining HTML tags not produced by markdown parser (XSS prevention)
-    html = html.replace(/<(?!(?:\/?(?:h[1-3]|strong|em|blockquote(?:\s+class="[^"]*")?|ul|li|p)\b|br\s*\/?>))/g, '&lt;');
-    html = html.replace(/(?<!&lt;)>(?!>)/g, function(m) {
-      // Only escape > that isn't part of our generated safe tags
-      return '&gt;';
-    });
     return html;
   }
 

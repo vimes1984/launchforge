@@ -342,6 +342,7 @@ app.post('/api/chat', async (req, res) => {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      recordCircuitFailure();
       const contentType = response.headers.get('content-type') || '';
       let errMsg;
       if (contentType.includes('application/json')) {
@@ -362,15 +363,19 @@ app.post('/api/chat', async (req, res) => {
 
     const responseContentType = response.headers.get('content-type') || '';
     if (!responseContentType.includes('application/json') && !responseContentType.includes('text/event-stream')) {
+      recordCircuitFailure();
       const text = await response.text();
       console.error('Non-JSON response from gateway:', text.slice(0, 300));
       return res.status(502).json({ error: 'Gateway returned unexpected response format.' });
     }
 
+    recordCircuitSuccess();
+
     const responseData = await response.json();
     const reply = responseData.choices?.[0]?.message?.content || 'No response from agent.';
     res.json({ reply });
   } catch (err) {
+    recordCircuitFailure();
     console.error('Agent chat error:', err);
     if (err.name === 'AbortError') {
       return res.status(504).json({ error: 'Gateway request timed out after 30 seconds.' });
@@ -381,6 +386,17 @@ app.post('/api/chat', async (req, res) => {
 
 // Serve frontend static files
 app.use(express.static(path.join(path.resolve(), 'public')));
+
+// Global error handling middleware (must be last)
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', {
+    message: err.message,
+    stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+    method: req.method,
+    path: req.path
+  });
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 app.listen(PORT, () => {
   console.log(`LaunchForge running at http://localhost:${PORT}`);
