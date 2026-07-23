@@ -128,7 +128,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Load saved tasks from localstorage if any
       const savedTasks = localStorage.getItem(`launchforge-tasks-${repoPath}`);
       if (savedTasks) {
-        currentProject.tasks = JSON.parse(savedTasks);
+        try {
+          currentProject.tasks = JSON.parse(savedTasks);
+        } catch (e) {
+          console.warn('Failed to parse saved tasks, using defaults', e);
+        }
       }
       
       // Update UI

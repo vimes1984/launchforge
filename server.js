@@ -15,6 +15,11 @@ app.use(express.json());
 
 const PORT = 5000;
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
 // Resolve OpenClaw gateway connection details dynamically
 async function getOpenClawConfig() {
   const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
