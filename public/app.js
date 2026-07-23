@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       const targetId = btn.getAttribute('data-target');
       const text = document.getElementById(targetId).textContent;
-      navigator.clipboard.writeText(text);
+      try { navigator.clipboard.writeText(text); } catch (clipErr) { console.warn("Clipboard write failed:", clipErr); }
       
       const originalText = btn.textContent;
       btn.textContent = 'Copied!';
