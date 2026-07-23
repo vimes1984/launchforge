@@ -38,6 +38,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
+// Restrict HTTP methods on API routes — return 405 for unsupported methods
+const ALLOWED_API_METHODS = { '/api/health': ['GET'], '/api/analyze': ['POST'], '/api/chat': ['POST'] };
+app.use('/api', (req, res, next) => {
+  const allowed = ALLOWED_API_METHODS[req.path];
+  if (allowed && !allowed.includes(req.method)) {
+    res.setHeader('Allow', allowed.join(', '));
+    return res.status(405).json({ error: `Method ${req.method} not allowed. Allowed: ${allowed.join(', ')}` });
+  }
+  next();
+});
+
 // Content-Type validation middleware for POST endpoints
 function requireJsonContent(req, res, next) {
   if (req.method !== 'POST') return next();
@@ -294,6 +305,10 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
+    if (isCircuitOpen()) {
+      return res.status(503).json({ error: 'Agent gateway is temporarily unavailable. Please try again in a minute.', circuitOpen: true });
+    }
+
     const gatewayConfig = await getOpenClawConfig();
     const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://localhost:${gatewayConfig.port}`;
     const endpoint = `${gatewayUrl}/v1/chat/completions`;
