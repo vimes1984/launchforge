@@ -136,6 +136,18 @@ function isPathSafe(resolvedPath) {
   return normalized.startsWith(WORKSPACE_BASE);
 }
 
+// Safe JSON stringify helper — handles circular references
+function safeStringify(obj, spaces = 2) {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+    }
+    return value;
+  }, spaces);
+}
+
 // Simple in-memory request counter
 let requestCount = 0;
 const recentErrors = [];
@@ -228,20 +240,6 @@ app.use('/api/analyze', requireJsonContent);
 app.use('/api/chat', strictLimiter);
 app.use('/api/chat', requireJsonContent);
 
-// Auth middleware for /api/chat - requires a valid gateway token
-app.use('/api/chat', async (req, res, next) => {
-  const authHeader = req.headers['authorization'] || '';
-  // If no auth header, check if gateway token is required (enabled by env var)
-  if (process.env.REQUIRE_AUTH === 'true' || process.env.REQUIRE_AUTH === '1') {
-    if (!authHeader.startsWith('Bearer ')) {
-      const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-      recordFailedAuth(ip);
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-  }
-  next();
-});
-
 // Resolve OpenClaw gateway connection details dynamically
 async function getOpenClawConfig() {
   const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
@@ -294,23 +292,6 @@ app.post('/api/analyze', async (req, res) => {
   let tempDir = '';
   let defaultProjectName = '';
 
-  // Directory traversal encoding bypass detection (URL-encoded, double-encoded)
-  const decodedPath = (() => { try { return decodeURIComponent(repoPath); } catch { return repoPath; } })();
-  const doubleDecoded = (() => { try { return decodeURIComponent(decodedPath); } catch { return decodedPath; } })();
-
-  // Check all decoded forms for path traversal patterns
-  for (const decoded of [repoPath, decodedPath, doubleDecoded]) {
-    if (typeof decoded !== 'string') continue;
-    // Check for ../ or ..\ patterns — reject any encoded traversal attempt
-    if (/\.\.(\/|\\)/.test(decoded)) {
-      return res.status(400).json({ error: 'Invalid repoPath: path traversal encoding detected' });
-    }
-    // Block paths starting with .. (relative escape attempts)
-    if (decoded.startsWith('..')) {
-      return res.status(400).json({ error: 'Invalid repoPath: path traversal detected' });
-    }
-  }
-
   // Command injection prevention: block shell metacharacters in repoPath
   if (/[;&|`$()]/.test(repoPath)) {
     return res.status(400).json({ error: 'Invalid repoPath: shell metacharacters not allowed' });
@@ -332,39 +313,8 @@ app.post('/api/analyze', async (req, res) => {
       if (isGithubShorthand) {
         cloneUrl = `https://github.com/${repoPath}.git`;
       }
-
-      // Dedup concurrent clones to same URL: reject duplicate requests
-      const normalizedUrl = cloneUrl.replace(/\.git$/, '').toLowerCase();
-      if (inFlightClones.has(normalizedUrl)) {
-        return res.status(429).json({ error: 'This repository is already being analyzed. Please wait.' });
-      }
-      inFlightClones.set(normalizedUrl, true);
-
-      tempDir = path.join(TEMP_DIR, `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
-      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });
-      const cleanPath = repoPath.replace(/\.git$/, '');
-      defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
-
-      try {
-        await execPromise(`git clone --depth 1 "${cloneUrl}" "${tempDir}"`, { timeout: 60000 });
-        resolvedPath = tempDir;
-        isTemp = true;
-        try { await fs.chmod(tempDir, 0o700); } catch(e) { console.warn('Failed to chmod temp dir:', e); }
-      } catch (cloneErr) {
-        console.error('Failed to clone repository:', cloneErr);
-        if (cloneErr.killed || cloneErr.code === 'ETIMEDOUT' || cloneErr.signal === 'SIGTERM') {
-          return res.status(408).json({ error: 'Git clone timed out after 60 seconds.' });
-        }
-        if (cloneErr.code === 'ENOENT') {
-          return res.status(500).json({ error: 'Git is not installed or not found in PATH.' });
-        }
-        if (cloneErr.code === 'EACCES' || cloneErr.code === 'EPERM') {
-          return res.status(500).json({ error: 'Permission denied: unable to create temp directory for clone.' });
-        }
-        return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
-      } finally {
-        inFlightClones.delete(normalizedUrl);
-      }      // Create temp directory with restricted permissions (owner-only)      
+      tempDir = path.join(os.tmpdir(), `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });      // Create temp directory with restricted permissions (owner-only)      
       const cleanPath = repoPath.replace(/\.git$/, '');
       defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
 
@@ -477,10 +427,8 @@ app.post('/api/analyze', async (req, res) => {
       };
     }
 
-    lifecycle.emit('analysisComplete', { projectName, isTemp, repoPath });
     res.json(data);
   } catch (err) {
-    lifecycle.emit('analysisError', { repoPath, error: err.message });
     console.error('Analysis error:', err);
     res.status(500).json({ error: 'Internal server error during analysis.' });
   } finally {
@@ -689,6 +637,12 @@ Structure your replies using Markdown with clear sections. Keep answers practica
 
   try {
     if (isCircuitOpen()) {
+      // Try to return a cached response for graceful degradation
+      const cacheKey = `${agentId || 'default'}:${messages[messages.length - 1]?.content?.slice(0, 100) || ''}`;
+      const cached = responseCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return res.json({ reply: cached.reply, cached: true, conversationId: convId });
+      }
       return res.status(503).json({ error: 'Agent gateway is temporarily unavailable. Please try again in a minute.', circuitOpen: true });
     }
 
@@ -773,7 +727,6 @@ Structure your replies using Markdown with clear sections. Keep answers practica
     // Cache response for graceful degradation when gateway is down
     const cacheKey = `${agentId || 'default'}:${messages[messages.length - 1]?.content?.slice(0, 100) || ''}`;
     responseCache.set(cacheKey, { reply, timestamp: Date.now() });
-    // Limit cache size
     if (responseCache.size > 100) {
       const oldestKey = responseCache.keys().next().value;
       responseCache.delete(oldestKey);
@@ -836,25 +789,32 @@ async function startServer() {
     process.exit(1);
   }
 
+  // Detect port conflict before binding
+  const portInUse = await new Promise((resolve) => {
+    const tester = require('node:net').createServer();
+    tester.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') resolve(true);
+      else resolve(false);
+    });
+    tester.once('listening', () => {
+      tester.close();
+      resolve(false);
+    });
+    tester.listen(PORT);
+  });
+  if (portInUse) {
+    console.error(`Port ${PORT} is already in use. LaunchForge cannot start.`);
+    process.exit(1);
+  }
+
   const server = app.listen(PORT, () => {
     console.log(`LaunchForge running at http://localhost:${PORT}`);
-  });
-  // Handle EADDRINUSE emitted as error event (port conflict)
-  server.once('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} is already in use. LaunchForge cannot start.`);
-    } else {
-      console.error(`Failed to start server: ${err.message}`);
-    }
-    process.exit(1);
   });
 
   // Graceful shutdown handler
   function shutdown(signal) {
-    lifecycle.emit('shuttingDown', { signal });
     console.log(`Received ${signal}. Shutting down gracefully...`);
     server.close(() => {
-      lifecycle.emit('stopped', { signal });
       console.log('HTTP server closed.');
       process.exit(0);
     });
