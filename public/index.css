@@ -880,6 +880,31 @@ button {
   background: hsla(0, 60%, 40%, 0.15);
 }
 
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.quick-action-btn {
+  background: hsla(220, 20%, 15%, 0.4);
+  border: 1px solid var(--panel-border);
+  color: var(--text-secondary);
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.quick-action-btn:hover {
+  background: var(--primary-glow-dim);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
 .chat-console {
   display: flex;
   flex-direction: column;

@@ -268,9 +268,18 @@ document.addEventListener('DOMContentLoaded', () => {
     adminSeg.textContent = `Admin: ${adminPct}%`;
   }
 
-  crateCount.addEventListener('input', renderFinancials);
-  cratePrice.addEventListener('input', renderFinancials);
-  farmSplit.addEventListener('input', renderFinancials);
+  // Debounce utility for frequent event handlers
+  function debounce(fn, ms) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), ms);
+    };
+  }
+
+  crateCount.addEventListener('input', debounce(renderFinancials, 50));
+  cratePrice.addEventListener('input', debounce(renderFinancials, 50));
+  farmSplit.addEventListener('input', debounce(renderFinancials, 50));
 
   // Kanban Tasks
   function renderTasks() {
@@ -544,6 +553,18 @@ document.addEventListener('DOMContentLoaded', () => {
       sendChatBtn.disabled = false;
     }
   }
+
+  // Quick action buttons — fill input with a pre-defined prompt
+  document.querySelectorAll('.quick-action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prompt = btn.getAttribute('data-prompt');
+      if (prompt) {
+        chatInput.value = prompt;
+        chatInput.focus();
+        sendChatMessage();
+      }
+    });
+  });
 
   sendChatBtn.addEventListener('click', sendChatMessage);
   chatInput.addEventListener('keydown', (e) => {

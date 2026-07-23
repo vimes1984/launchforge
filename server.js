@@ -64,12 +64,25 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "same-origin" }
 }));
 
-// Request logging middleware (method, path, status, duration)
+// Request logging + X-Response-Time header + size logging
 app.use((req, res, next) => {
   const start = Date.now();
+  const reqSize = req.headers['content-length'] || 0;
+
+  // Inject X-Response-Time header before response is sent
+  const originalEnd = res.end.bind(res);
+  res.end = function (...args) {
+    const duration = Date.now() - start;
+    if (!res.headersSent) {
+      res.setHeader('X-Response-Time', `${duration}ms`);
+    }
+    return originalEnd(...args);
+  };
+
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+    const resSize = res.getHeader('content-length') || 0;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms req=${reqSize}b res=${resSize}b`);
   });
   next();
 });
@@ -189,8 +202,7 @@ app.post('/api/analyze', async (req, res) => {
         cloneUrl = `https://github.com/${repoPath}.git`;
       }
       tempDir = path.join(os.tmpdir(), `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
-      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });\n      // Create temp directory with restricted permissions (owner-only)\n      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });
-      
+      await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });      // Create temp directory with restricted permissions (owner-only)      
       const cleanPath = repoPath.replace(/\.git$/, '');
       defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
 
@@ -198,6 +210,8 @@ app.post('/api/analyze', async (req, res) => {
         await execPromise(`git clone --depth 1 "${cloneUrl}" "${tempDir}"`, { timeout: 60000 });
         resolvedPath = tempDir;
         isTemp = true;
+        // Restrict temp directory permissions to owner-only
+        try { await fs.chmod(tempDir, 0o700); } catch(e) { console.warn("Failed to chmod temp dir:", e); }
       } catch (cloneErr) {
         console.error('Failed to clone repository:', cloneErr);
         if (cloneErr.killed || cloneErr.code === 'ETIMEDOUT' || cloneErr.signal === 'SIGTERM') {
@@ -250,7 +264,7 @@ app.post('/api/analyze', async (req, res) => {
       const titleMatch = readme.match(/^#\s+(.+)$/m);
       if (titleMatch) projectName = titleMatch[1].trim();
       
-      const descLines = readme.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('>'));
+      const descLines = readme.split('').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('>'));
       if (descLines.length > 0) projectDesc = descLines[0].trim();
     }
 
@@ -259,9 +273,9 @@ app.post('/api/analyze', async (req, res) => {
       projectName,
       projectDesc,
       hasCustomPlan: Boolean(strategy),
-      strategyMarkdown: strategy || `# ${projectName} Business Framework\n\nNo custom strategy file found. Using dynamically generated template.`,
-      postsMarkdown: posts || `# Pitch Posts\n\nNo pitch posts found.`,
-      issuesMarkdown: issues || `# Proposed Tasks\n\nNo tasks found.`,
+      strategyMarkdown: strategy || `# ${projectName} Business FrameworkNo custom strategy file found. Using dynamically generated template.`,
+      postsMarkdown: posts || `# Pitch PostsNo pitch posts found.`,
+      issuesMarkdown: issues || `# Proposed TasksNo tasks found.`,
       tasks: [],
       financials: {
         labels: ['Revenue Split 1', 'Revenue Split 2', 'Revenue Split 3'],
@@ -547,7 +561,7 @@ app.use(express.static(path.join(path.resolve(), 'public')));
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', {
     message: err.message,
-    stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+    stack: err.stack?.split('').slice(0, 5).join(''),
     method: req.method,
     path: req.path
   });
