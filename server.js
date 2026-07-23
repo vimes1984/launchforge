@@ -676,12 +676,16 @@ Structure your replies using Markdown with clear sections. Keep answers practica
     const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://localhost:${gatewayConfig.port}`;
     const endpoint = `${gatewayUrl}/v1/chat/completions`;
 
+    // Sanitize headers to prevent CRLF injection in proxy requests
     const headers = {
       'Content-Type': 'application/json'
     };
+    function sanitizeHeaderValue(val) {
+      return String(val).replace(/[\r\n]/g, '').slice(0, 1024);
+    }
     const token = process.env.OPENCLAW_GATEWAY_TOKEN || gatewayConfig.token;
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers['Authorization'] = 'Bearer ' + sanitizeHeaderValue(token);
     }
 
     const payload = {
