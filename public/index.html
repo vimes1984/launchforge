@@ -234,6 +234,10 @@
                   <div class="task-list" id="done-tasks"></div>
                 </div>
               </div>
+              <div class="task-progress-bar">
+                <div class="task-progress-fill" id="taskProgressFill" style="width: 0%;"></div>
+                <span class="task-progress-text" id="taskProgressText">0% complete</span>
+              </div>
               <div class="task-search-bar">
                 <input type="search" id="taskSearchInput" placeholder="Filter tasks by keyword..." aria-label="Search tasks">
               </div>
@@ -329,6 +333,16 @@
   </div>
 
   <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 id="modalTitle">Confirm</h3>
+      <p id="modalMessage">Are you sure?</p>
+      <div class="modal-actions">
+        <button class="sec-btn" id="modalCancelBtn" type="button">Cancel</button>
+        <button class="danger-btn" id="modalConfirmBtn" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

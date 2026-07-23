@@ -8,9 +8,21 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-
+import http from 'node:http';
+import https from 'node:https';
 
 const execPromise = promisify(exec);
+
+// Keep-alive agents for connection pooling to gateway
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10, timeout: 30000 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 30000 });
+
+// Generate a unique request ID
+let requestIdCounter = 0;
+function generateRequestId() {
+  requestIdCounter++;
+  return `${Date.now().toString(36)}-${requestIdCounter.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
 
 const app = express();
 // Restrict CORS to known origins
@@ -31,6 +43,13 @@ function corsOriginCheck(origin, cb) {
   cb(new Error("Not allowed by CORS"));
 }
 app.use(cors({ origin: corsOriginCheck }));
+
+// Request ID middleware — assigns unique ID to every request
+app.use((req, res, next) => {
+  req.id = generateRequestId();
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
 
 // JSON body parsing with size limit
 app.use(express.json({ limit: "1mb" }));

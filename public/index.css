@@ -1117,12 +1117,53 @@ button {
   padding-right: 0.25rem;
 }
 
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+.message-wrapper.assistant {
+  align-self: flex-start;
+}
+
+.message-wrapper.user {
+  align-self: flex-end;
+}
+
 .message {
   padding: 0.8rem 1rem;
   border-radius: 12px;
   font-size: 0.9rem;
   line-height: 1.4;
-  max-width: 85%;
+}
+
+.rating-row {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  padding-left: 0.3rem;
+}
+
+.rating-btn {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--text-dim);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rating-btn:hover {
+  background: var(--primary-glow-dim);
+  border-color: var(--accent-color);
+}
+
+.rating-thanks {
+  font-size: 0.7rem;
+  color: var(--accent-color);
 }
 
 .message.user {
@@ -1188,6 +1229,92 @@ button {
     --card-bg: hsla(220, 20%, 96%, 0.8);
     --input-bg: hsla(220, 30%, 90%, 0.8);
     --button-hover-bg: hsla(145, 70%, 30%, 0.1);
+  }
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-box {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: modalBoxIn 0.25s ease-out;
+}
+
+.modal-box h3 {
+  font-family: var(--font-family-mono);
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-box p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.4;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.modal-actions .primary-btn,
+.modal-actions .sec-btn {
+  min-width: 90px;
+  text-align: center;
+}
+
+.modal-actions .danger-btn {
+  background: hsl(0, 70%, 45%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: var(--font-weight-bold);
+}
+
+.modal-actions .danger-btn:hover {
+  background: hsl(0, 80%, 50%);
+  box-shadow: 0 4px 15px hsla(0, 70%, 45%, 0.3);
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalBoxIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 

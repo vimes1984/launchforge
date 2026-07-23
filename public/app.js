@@ -351,6 +351,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }, duration);
   }
 
+  // Modal confirmation helper
+  function showConfirmModal(title, message, confirmLabel = 'Delete', confirmClass = 'danger-btn') {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('modalOverlay');
+      const titleEl = document.getElementById('modalTitle');
+      const msgEl = document.getElementById('modalMessage');
+      const confirmBtn = document.getElementById('modalConfirmBtn');
+      const cancelBtn = document.getElementById('modalCancelBtn');
+
+      if (!overlay || !titleEl || !msgEl || !confirmBtn || !cancelBtn) {
+        resolve(false);
+        return;
+      }
+
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+      confirmBtn.textContent = confirmLabel;
+      confirmBtn.className = confirmClass;
+      overlay.classList.remove('hidden');
+
+      function cleanup() {
+        overlay.classList.add('hidden');
+        confirmBtn.removeEventListener('click', onConfirm);
+        cancelBtn.removeEventListener('click', onCancel);
+        overlay.removeEventListener('click', onOverlay);
+      }
+
+      function onConfirm() {
+        cleanup();
+        resolve(true);
+      }
+
+      function onCancel() {
+        cleanup();
+        resolve(false);
+      }
+
+      function onOverlay(e) {
+        if (e.target === overlay) {
+          cleanup();
+          resolve(false);
+        }
+      }
+
+      confirmBtn.addEventListener('click', onConfirm);
+      cancelBtn.addEventListener('click', onCancel);
+      overlay.addEventListener('click', onOverlay);
+
+      // Escape key to close
+      const onEscape = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          document.removeEventListener('keydown', onEscape);
+          resolve(false);
+        }
+      };
+      document.addEventListener('keydown', onEscape);
+
+      // Focus confirm button for accessibility
+      confirmBtn.focus();
+    });
+  }
+
   // Smooth number animation helper
   function animateValue(el, start, end, duration = 400) {
     const startTime = performance.now();
@@ -588,6 +651,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (progressCount) progressCount.textContent = tasks.filter(t => t.status === 'progress').length;
     if (doneCount) doneCount.textContent = tasks.filter(t => t.status === 'done').length;
 
+    // Update task progress bar
+    const totalTasks = tasks.length;
+    const doneTasksCount = tasks.filter(t => t.status === 'done').length;
+    const progressPct = totalTasks > 0 ? Math.round((doneTasksCount / totalTasks) * 100) : 0;
+    const progressFill = document.getElementById('taskProgressFill');
+    const progressText = document.getElementById('taskProgressText');
+    if (progressFill) progressFill.style.width = progressPct + '%';
+    if (progressText) progressText.textContent = progressPct + '% complete (' + doneTasksCount + '/' + totalTasks + ')';
+
     // Show empty state placeholders if no tasks in a column
     if (!todoList.children.length) {
       todoList.appendChild(createEmptyState('No tasks yet. Add one below!'));
@@ -618,10 +690,15 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTasks();
   }
 
-  function deleteTask(id) {
+  async function deleteTask(id) {
+    const task = currentProject.tasks.find(t => t.id === id);
+    const taskName = task ? task.title : 'this task';
+    const confirmed = await showConfirmModal('Delete Task', `Are you sure you want to delete "${taskName}"?`);
+    if (!confirmed) return;
     currentProject.tasks = currentProject.tasks.filter(t => t.id !== id);
     saveTasks();
     renderTasks();
+    showToast('Task deleted', 2000);
   }
 
   function saveTasks() {
@@ -688,7 +765,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${hours}:${mins}`;
   }
 
+  // Track which messages have been rated to avoid duplicate buttons
+  let latestAssistantMsgIdx = -1;
+
   function appendChatMessage(msg) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `message-wrapper ${msg.role}`;
+
     const bubble = document.createElement('div');
     bubble.className = `message ${msg.role}`;
     bubble.textContent = msg.content;
@@ -697,8 +780,40 @@ document.addEventListener('DOMContentLoaded', () => {
     ts.className = 'message-timestamp';
     ts.textContent = msg.ts || formatTimestamp();
     bubble.appendChild(ts);
+    wrapper.appendChild(bubble);
+
+    // Rating buttons on latest assistant message
+    const history = chatHistories[activeAgent];
+    const idx = history.indexOf(msg);
+    if (msg.role === 'assistant' && !msg._rated && idx === history.length - 1 && idx !== latestAssistantMsgIdx) {
+      latestAssistantMsgIdx = idx;
+      const ratingRow = document.createElement('div');
+      ratingRow.className = 'rating-row';
+      
+      const thumbsUp = document.createElement('button');
+      thumbsUp.className = 'rating-btn';
+      thumbsUp.textContent = '👍';
+      thumbsUp.title = 'Helpful';
+      thumbsUp.addEventListener('click', () => {
+        msg._rated = 'up';
+        ratingRow.innerHTML = '<span class="rating-thanks">Thanks!</span>';
+      });
+      
+      const thumbsDown = document.createElement('button');
+      thumbsDown.className = 'rating-btn';
+      thumbsDown.textContent = '👎';
+      thumbsDown.title = 'Not helpful';
+      thumbsDown.addEventListener('click', () => {
+        msg._rated = 'down';
+        ratingRow.innerHTML = '<span class="rating-thanks">Noted</span>';
+      });
+      
+      ratingRow.appendChild(thumbsUp);
+      ratingRow.appendChild(thumbsDown);
+      wrapper.appendChild(ratingRow);
+    }
     
-    chatMessages.appendChild(bubble);
+    chatMessages.appendChild(wrapper);
   }
 
   function renderChat() {
