@@ -268,6 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const originalText = btn.textContent;
       btn.textContent = 'Copied!';
+      showToast('Pitch copied to clipboard', 2000);
       setTimeout(() => btn.textContent = originalText, 1500);
     });
   });
@@ -382,6 +383,47 @@ document.addEventListener('DOMContentLoaded', () => {
   crateCount.addEventListener('input', debounce(renderFinancials, 50));
   cratePrice.addEventListener('input', debounce(renderFinancials, 50));
   farmSplit.addEventListener('input', debounce(renderFinancials, 50));
+
+  // Export financial data as CSV
+  const exportCSVBtn = document.getElementById('exportCSVBtn');
+  if (exportCSVBtn) {
+    exportCSVBtn.addEventListener('click', () => {
+      const rawCount = parseInt(crateCount.value, 10);
+      const rawPrice = parseInt(cratePrice.value, 10);
+      const rawFarmPct = parseInt(farmSplit.value, 10);
+      const count = isNaN(rawCount) || rawCount < 0 ? 0 : rawCount;
+      const price = isNaN(rawPrice) || rawPrice < 0 ? 0 : rawPrice;
+      const farmPct = isNaN(rawFarmPct) || rawFarmPct < 0 ? 0 : Math.min(rawFarmPct, 100);
+      const remaining = 100 - farmPct;
+      const logisticsPct = Math.round(remaining * 0.72);
+      const adminPct = 100 - farmPct - logisticsPct;
+      const volume = count * price;
+      const farmVal = Math.round((volume * farmPct) / 100);
+      const logisticsVal = Math.round((volume * logisticsPct) / 100);
+      const adminVal = volume - farmVal - logisticsVal;
+      
+      const rows = [
+        ['Metric', 'Monthly', 'Yearly'],
+        ['Crate Orders', count, count * 12],
+        ['Price per Crate (€)', price, price],
+        ['Total Volume (€)', volume, volume * 12],
+        ['Farm Payout (€)', farmVal, farmVal * 12],
+        ['Logistics Payout (€)', logisticsVal, logisticsVal * 12],
+        ['Admin Payout (€)', adminVal, adminVal * 12],
+        ['Farm Split (%)', farmPct, farmPct],
+        ['Logistics Split (%)', logisticsPct, logisticsPct],
+        ['Admin Split (%)', adminPct, adminPct]
+      ];
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'launchforge-financials.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
 
   // Kanban Tasks
   function createEmptyState(text) {

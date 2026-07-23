@@ -95,5 +95,14 @@
         "enabled": true
       }
     }
+  },
+  "launchforge": {
+    "port": 5000,
+    "healthEndpoint": "/api/health",
+    "statusEndpoint": "/api/status",
+    "startupScript": "node server.js",
+    "tempDir": "/tmp/launchforge",
+    "gitTimeoutMs": 60000,
+    "gatewayTimeoutMs": 30000
   }
 }
