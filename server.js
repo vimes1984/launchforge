@@ -235,6 +235,36 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
   throw lastError || new Error('Max retries exceeded');
 }
 
+// Circuit breaker state — opens after 5 consecutive failures, resets after 60s
+let circuitBreaker = { failures: 0, lastFailureTime: 0, isOpen: false };
+const CB_THRESHOLD = 5;
+const CB_RESET_MS = 60000;
+
+function isCircuitOpen() {
+  if (!circuitBreaker.isOpen) return false;
+  const elapsed = Date.now() - circuitBreaker.lastFailureTime;
+  if (elapsed >= CB_RESET_MS) {
+    circuitBreaker.isOpen = false;
+    circuitBreaker.failures = 0;
+    console.log('Circuit breaker reset — allowing gateway calls again');
+    return false;
+  }
+  return true;
+}
+
+function recordCircuitFailure() {
+  circuitBreaker.failures++;
+  circuitBreaker.lastFailureTime = Date.now();
+  if (circuitBreaker.failures >= CB_THRESHOLD) {
+    circuitBreaker.isOpen = true;
+    console.warn(`Circuit breaker OPEN after ${circuitBreaker.failures} consecutive failures`);
+  }
+}
+
+function recordCircuitSuccess() {
+  circuitBreaker.failures = 0;
+}
+
 // Proxy agent prompts to local OpenClaw gateway
 app.post('/api/chat', async (req, res) => {
   const { agentId, messages } = req.body;
