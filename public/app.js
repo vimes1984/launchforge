@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const strategyContent = document.getElementById('strategyContent');
   
   const hnCopy = document.getElementById('hnCopy');
-  const redditSolar = document.getElementById('redditSolar');
+  const redditSolar = document.getElementById('reddit-solar');
   const pressRelease = document.getElementById('pressRelease');
   
   const crateCount = document.getElementById('crateCount');

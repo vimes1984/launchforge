@@ -15,6 +15,15 @@ app.use(express.json());
 
 const PORT = 5000;
 
+// Allowed base directory for local repo path resolution (prevents traversal)
+const WORKSPACE_BASE = path.resolve('.');
+
+// Validate that a resolved path stays within the allowed base directory
+function isPathSafe(resolvedPath) {
+  const normalized = path.normalize(resolvedPath);
+  return normalized.startsWith(WORKSPACE_BASE);
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
@@ -83,10 +92,15 @@ app.post('/api/analyze', async (req, res) => {
         return res.status(400).json({ error: 'Failed to clone GitHub repository. Please verify the URL and ensure the repository is public.' });
       }
     } else {
-      resolvedPath = path.resolve(repoPath);
-      if (!existsSync(resolvedPath)) {
+      // Resolve path and validate it stays within workspace (prevent traversal)
+      const absolutePath = path.resolve(repoPath);
+      if (!isPathSafe(absolutePath)) {
+        return res.status(400).json({ error: 'Invalid repoPath: path traversal detected' });
+      }
+      if (!existsSync(absolutePath)) {
         return res.status(400).json({ error: 'Directory does not exist locally' });
       }
+      resolvedPath = absolutePath;
       defaultProjectName = path.basename(resolvedPath);
     }
 
@@ -180,6 +194,11 @@ app.post('/api/chat', async (req, res) => {
     if (!msg || typeof msg !== 'object' || !msg.role || !msg.content) {
       return res.status(400).json({ error: 'Each message must have role and content properties' });
     }
+  }
+
+  const VALID_AGENTS = ['strategist', 'copywriter', 'advisor'];
+  if (agentId !== undefined && agentId !== null && agentId !== '' && !VALID_AGENTS.includes(agentId)) {
+    return res.status(400).json({ error: `agentId must be one of: ${VALID_AGENTS.join(', ')} or empty` });
   }
 
   let systemPrompt = '';
