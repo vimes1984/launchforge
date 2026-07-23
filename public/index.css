@@ -1221,6 +1221,23 @@ textarea.input-error {
   border-color: var(--accent-color);
 }
 
+.setting-prompt-btn {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--text-dim);
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.setting-prompt-btn:hover {
+  background: var(--primary-glow-dim);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
 .chat-stats-bar {
   display: flex;
   justify-content: space-between;
@@ -1536,6 +1553,49 @@ textarea.input-error {
 }
 
 /* Toast notification */
+.crash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-color);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crash-overlay.hidden {
+  display: none;
+}
+
+.crash-box {
+  text-align: center;
+  padding: 3rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  max-width: 420px;
+  backdrop-filter: blur(20px);
+}
+
+.crash-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.crash-box h2 {
+  font-family: var(--font-family-mono);
+  margin-bottom: 0.75rem;
+}
+
+.crash-box p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
 .toast-container {
   position: fixed;
   bottom: 2rem;

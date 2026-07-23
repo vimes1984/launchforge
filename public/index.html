@@ -313,6 +313,7 @@
                     <option value="ollama/llama3.2">Llama 3.2</option>
                   </select>
                 </label>
+                <button class="setting-prompt-btn" id="editPromptBtn" type="button" title="Edit agent system prompt">✏️</button>
               </div>
 
               <div class="chat-stats-bar">
@@ -357,6 +358,14 @@
         <button class="sec-btn" id="modalCancelBtn" type="button">Cancel</button>
         <button class="danger-btn" id="modalConfirmBtn" type="button">Delete</button>
       </div>
+    </div>
+  </div>
+  <div id="crashOverlay" class="crash-overlay hidden" role="alert">
+    <div class="crash-box">
+      <div class="crash-icon">⚠️</div>
+      <h2>Something went wrong</h2>
+      <p>An unexpected error occurred. Don't worry — your data is preserved.</p>
+      <button id="crashReloadBtn" class="primary-btn" type="button">Reload Dashboard</button>
     </div>
   </div>
   <script src="app.js"></script>

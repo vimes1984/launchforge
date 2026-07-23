@@ -1,4 +1,18 @@
 // LaunchForge App Client Logic
+
+// Crash recovery — show error boundary UI on unhandled errors
+window.addEventListener('error', (e) => {
+  const overlay = document.getElementById('crashOverlay');
+  if (overlay) overlay.classList.remove('hidden');
+  console.error('Unhandled error:', e.error || e.message);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  const overlay = document.getElementById('crashOverlay');
+  if (overlay) overlay.classList.remove('hidden');
+  console.error('Unhandled promise rejection:', e.reason);
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   // State
   let currentProject = {
@@ -1416,7 +1430,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Setup repo reload listener
   function getRepoPath() {
-    return repoPathInput.value.trim();
+    const raw = repoPathInput.value.trim();
+    // Sanitize: strip HTML tags that could be used for XSS
+    return raw.replace(/<[^>]*>/g, '');
   }
 
   analyzeBtn.addEventListener('click', () => {
@@ -1546,6 +1562,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 50);
       }
     }
+  });
+
+  // Crash reload button
+  document.getElementById('crashReloadBtn')?.addEventListener('click', () => {
+    location.reload();
   });
 
   // Real-time clock update

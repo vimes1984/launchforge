@@ -614,8 +614,14 @@ setInterval(() => {
 const responseCache = new Map();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
-// Shared helper: build system prompt by agent ID (with optional language)
-function buildSystemPrompt(agentId, language) {
+// Shared helper: build system prompt by agent ID (with optional language and custom override)
+function buildSystemPrompt(agentId, language, customPrompt) {
+  if (customPrompt && customPrompt.trim()) {
+    const langSuffix = language && language !== 'en'
+      ? `\n\nIMPORTANT: Respond primarily in the language code "${language}".`
+      : '';
+    return customPrompt.trim() + langSuffix;
+  }
   const langSuffix = language && language !== 'en' 
     ? `\n\nIMPORTANT: Respond primarily in the language code "${language}". Use that language for all explanations, suggestions, and actionable content. Technical terms and names can stay in English when appropriate.`
     : '';
@@ -679,6 +685,18 @@ app.get('/api/agent/analytics', (req, res) => {
     uptimeMinutes: Math.round((Date.now() - agentAnalytics.startTime) / 60000),
     cachedResponses: responseCache.size
   });
+});
+
+// Agent prompt templates library — return available system prompts
+const promptTemplates = {
+  strategist: `You are the Lead Business & Launch Strategist. You help developers convert software projects into viable cooperatives, businesses, or solar-punk initiatives. Guide the user through business models, logistics hubs, community building, and scaling strategies.`,
+  copywriter: `You are the Launch Copywriter. You help developers write copy that converts. You specialize in crafting Reddit posts (like r/solarpunk, r/selfhosted), Show HN comments, and local press releases.`,
+  advisor: `You are the Cooperative Financial Advisor. You help developers optimize budget splits, logistics splits, pricing splits, and calculate cash-flow margins. Guide the user on cooperative economics, co-op credit models, dividends, and pricing structures.`,
+  default: `You are an AI Launch Assistant. Help the user launch and manage their business plan.`
+};
+
+app.get('/api/agent/templates', (req, res) => {
+  res.json({ templates: promptTemplates });
 });
 
 // Multi-agent consolidation endpoint — queries multiple agents and merges responses
@@ -749,7 +767,7 @@ app.post('/api/chat/consolidate', async (req, res) => {
 // Proxy agent prompts to local OpenClaw gateway
 // Streaming chat endpoint using SSE
 app.post('/api/chat/stream', async (req, res) => {
-  const { agentId, messages, conversationId, temperature, maxTokens, model, language } = req.body;
+  const { agentId, messages, conversationId, temperature, maxTokens, model, language, customPrompt } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
   }
