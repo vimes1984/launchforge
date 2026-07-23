@@ -799,6 +799,18 @@ button {
   position: relative;
   transition: all 0.2s;
   cursor: grab;
+  animation: taskSlideIn 0.3s ease-out;
+}
+
+@keyframes taskSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .task-card:hover {

@@ -294,29 +294,6 @@ app.post('/api/analyze', async (req, res) => {
   let tempDir = '';
   let defaultProjectName = '';
 
-  // Directory traversal encoding bypass detection (URL-encoded, double-encoded, unicode)
-  const decodedPath = decodeURIComponent(repoPath);
-  const doubleDecoded = (() => {
-    try { return decodeURIComponent(decodedPath); } catch { return decodedPath; }
-  })();
-  if (repoPath !== decodedPath || repoPath !== doubleDecoded) {
-    // Check if any decoded form contains traversal patterns
-    const traversalPatterns = [/..//, /..\\/, /%2e%2e%2f/i, /%252e%252e%252f/i,
-      /\u002e\u002e\u002f/i, /%c0%ae%c0%ae%c0%af/i, /..%00/];
-    for (const pattern of traversalPatterns) {
-      if (pattern.test(decodedPath) || pattern.test(doubleDecoded)) {
-        return res.status(400).json({ error: 'Invalid repoPath: path traversal encoding detected' });
-      }
-    }
-  }
-  // Also check raw path for explicit traversal
-  const rawTraversal = [/..//, /..\\/];
-  for (const pattern of rawTraversal) {
-    if (pattern.test(repoPath)) {
-      return res.status(400).json({ error: 'Invalid repoPath: path traversal detected' });
-    }
-  }
-
   // Command injection prevention: block shell metacharacters in repoPath
   if (/[;&|`$()]/.test(repoPath)) {
     return res.status(400).json({ error: 'Invalid repoPath: shell metacharacters not allowed' });
@@ -790,12 +767,6 @@ async function startServer() {
   if (nodeMajor < 18) {
     console.error(`LaunchForge requires Node.js >= 18 (current: ${process.version})`);
     process.exit(1);
-  }
-
-  // Check for .env file and warn if missing
-  const envPath = path.resolve('.env');
-  if (!existsSync(envPath)) {
-    console.warn('No .env file found. Using default configuration.');
   }
 
   // Validate git availability
