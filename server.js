@@ -477,8 +477,10 @@ app.post('/api/analyze', async (req, res) => {
       };
     }
 
+    lifecycle.emit('analysisComplete', { projectName, isTemp, repoPath });
     res.json(data);
   } catch (err) {
+    lifecycle.emit('analysisError', { repoPath, error: err.message });
     console.error('Analysis error:', err);
     res.status(500).json({ error: 'Internal server error during analysis.' });
   } finally {
@@ -849,8 +851,10 @@ async function startServer() {
 
   // Graceful shutdown handler
   function shutdown(signal) {
+    lifecycle.emit('shuttingDown', { signal });
     console.log(`Received ${signal}. Shutting down gracefully...`);
     server.close(() => {
+      lifecycle.emit('stopped', { signal });
       console.log('HTTP server closed.');
       process.exit(0);
     });
