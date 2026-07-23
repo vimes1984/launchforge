@@ -54,6 +54,14 @@ app.use((req, res, next) => {
 // JSON body parsing with size limit
 app.use(express.json({ limit: "1mb" }));
 
+// Handle malformed JSON body errors gracefully
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'Malformed JSON in request body.' });
+  }
+  next(err);
+});
+
 // Trust proxy and set cookie defaults for session security
 app.set("trust proxy", 1);
 app.use((req, res, next) => {
@@ -272,7 +280,11 @@ async function getOpenClawConfig() {
       };
     }
   } catch (err) {
-    console.error('Failed to read OpenClaw config:', err);
+    if (err instanceof SyntaxError) {
+      console.error('OpenClaw config file contains malformed JSON:', configPath);
+    } else {
+      console.error('Failed to read OpenClaw config:', err.message);
+    }
   }
   return { port: 18789, token: '' };
 }

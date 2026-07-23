@@ -488,6 +488,11 @@ document.addEventListener('DOMContentLoaded', () => {
     logSeg.textContent = `Logistics: ${logisticsPct}%`;
     adminSeg.style.width = `${adminPct}%`;
     adminSeg.textContent = `Admin: ${adminPct}%`;
+    
+    // Persist slider values back to state
+    if (currentProject.financials) {
+      currentProject.financials.values = [farmPct, logisticsPct, adminPct];
+    }
   }
 
   // Debounce utility for frequent event handlers
