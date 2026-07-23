@@ -4,7 +4,6 @@ import fs from 'node:fs/promises';
 import { existsSync, lstatSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createGzip } from 'node:zlib';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import rateLimit from 'express-rate-limit';

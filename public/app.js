@@ -280,6 +280,20 @@ document.addEventListener('DOMContentLoaded', () => {
     maximumFractionDigits: 0
   });
 
+  // Toast notification helper
+  function showToast(message, duration = 3000) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('toast-leaving');
+      toast.addEventListener('animationend', () => toast.remove());
+    }, duration);
+  }
+
   // Smooth number animation helper
   function animateValue(el, start, end, duration = 400) {
     const startTime = performance.now();
@@ -799,6 +813,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
     } catch (err) {
       if (followUpSuggestions) followUpSuggestions.style.display = 'none';
+      gatewayStatus = 'unreachable';
+      updateGatewayStatusUI();
       console.error(err);
       // Remove typing bubble if it still exists
       if (typingBubble.parentNode) {
