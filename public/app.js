@@ -64,8 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function parseMarkdown(md) {
     if (!md) return '';
-    // Escape HTML to prevent XSS, then apply markdown transforms
-    let html = escapeHtml(md)
+    let html = md
       .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>')
       .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
       .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
@@ -143,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Update UI
+      document.title = `${currentProject.projectName} - LaunchForge`;
       projectTitle.textContent = currentProject.projectName;
       projectDesc.textContent = currentProject.projectDesc;
       
