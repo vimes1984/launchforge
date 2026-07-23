@@ -631,6 +631,53 @@ document.addEventListener('DOMContentLoaded', () => {
   cratePrice.addEventListener('input', debounce(renderFinancials, 50));
   farmSplit.addEventListener('input', debounce(renderFinancials, 50));
 
+  // Save/compare financial scenarios
+  let savedScenarios = [];
+  const saveScenarioBtn = document.getElementById('saveScenarioBtn');
+  const scenarioList = document.getElementById('scenarioList');
+  
+  if (saveScenarioBtn) {
+    saveScenarioBtn.addEventListener('click', () => {
+      const count = parseInt(crateCount.value, 10);
+      const price = parseInt(cratePrice.value, 10);
+      const farmPct = parseInt(farmSplit.value, 10);
+      const volume = count * price;
+      savedScenarios.push({
+        label: `Scenario ${savedScenarios.length + 1}`,
+        count, price, farmPct,
+        volume,
+        time: new Date().toLocaleTimeString()
+      });
+      renderScenarios();
+      showToast('Scenario saved', 1500);
+    });
+  }
+  
+  function renderScenarios() {
+    if (!scenarioList) return;
+    scenarioList.innerHTML = '';
+    if (savedScenarios.length === 0) return;
+    savedScenarios.forEach((s, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'scenario-chip';
+      chip.textContent = `${s.label}: ${s.count}×€${s.price} @ ${s.farmPct}%`;
+      chip.title = `Volume: €${s.volume.toLocaleString()} (saved ${s.time}) — Click to load`;
+      chip.addEventListener('click', () => {
+        crateCount.value = s.count;
+        cratePrice.value = s.price;
+        farmSplit.value = s.farmPct;
+        renderFinancials();
+        showToast(`Loaded: ${s.label}`, 1500);
+      });
+      chip.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        savedScenarios.splice(i, 1);
+        renderScenarios();
+      });
+      scenarioList.appendChild(chip);
+    });
+  }
+
   // Export financial data as CSV
   const exportCSVBtn = document.getElementById('exportCSVBtn');
   if (exportCSVBtn) {
