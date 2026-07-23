@@ -86,16 +86,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Accordion Logic
+  function toggleAccordion(header) {
+    const item = header.parentElement;
+    const wasActive = item.classList.contains('active');
+    
+    // Close other accordion items
+    document.querySelectorAll('.accordion-item').forEach(i => {
+      i.classList.remove('active');
+      i.querySelector('.accordion-header').setAttribute('aria-expanded', 'false');
+    });
+    
+    if (!wasActive) {
+      item.classList.add('active');
+      header.setAttribute('aria-expanded', 'true');
+    }
+  }
+
   document.querySelectorAll('.accordion-header').forEach(header => {
-    header.addEventListener('click', () => {
-      const item = header.parentElement;
-      const wasActive = item.classList.contains('active');
-      
-      // Close other accordion items
-      document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('active'));
-      
-      if (!wasActive) {
-        item.classList.add('active');
+    header.addEventListener('click', () => toggleAccordion(header));
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleAccordion(header);
       }
     });
   });
@@ -282,6 +294,13 @@ document.addEventListener('DOMContentLoaded', () => {
   farmSplit.addEventListener('input', debounce(renderFinancials, 50));
 
   // Kanban Tasks
+  function createEmptyState(text) {
+    const el = document.createElement('div');
+    el.className = 'task-empty-state';
+    el.textContent = text;
+    return el;
+  }
+
   function renderTasks() {
     const todoList = document.getElementById('todo-tasks');
     const progressList = document.getElementById('progress-tasks');
