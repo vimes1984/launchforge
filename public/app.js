@@ -374,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       activeAgent = btn.getAttribute('data-agent');
       renderChat();
+      updateChatStats();
     });
   });
 
