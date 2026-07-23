@@ -729,7 +729,8 @@ Structure your replies using Markdown with clear sections. Keep answers practica
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
-      signal: controller.signal
+      signal: controller.signal,
+      agent: endpoint.startsWith('https') ? httpsAgent : httpAgent
     });
 
     clearTimeout(timeoutId);
