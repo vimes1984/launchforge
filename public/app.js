@@ -113,18 +113,36 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Tab Logic
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('active');
-        b.setAttribute('aria-selected', 'false');
-      });
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      
-      btn.classList.add('active');
-      btn.setAttribute('aria-selected', 'true');
-      const tabId = btn.getAttribute('data-tab');
-      document.getElementById(`tab-${tabId}`).classList.add('active');
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  
+  function activateTab(btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    const tabId = btn.getAttribute('data-tab');
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+  }
+
+  tabButtons.forEach((btn, i) => {
+    btn.addEventListener('click', () => activateTab(btn));
+    btn.addEventListener('keydown', (e) => {
+      let targetIndex = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        targetIndex = (i + 1) % tabButtons.length;
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        targetIndex = (i - 1 + tabButtons.length) % tabButtons.length;
+      }
+      if (targetIndex >= 0) {
+        tabButtons[targetIndex].focus();
+        activateTab(tabButtons[targetIndex]);
+      }
     });
   });
 
