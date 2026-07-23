@@ -55,6 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatMessages = document.getElementById('chatMessages');
   const chatInput = document.getElementById('chatInput');
   const sendChatBtn = document.getElementById('sendChatBtn');
+  const chatMsgCount = document.getElementById('chatMsgCount');
+  const clearChatBtn = document.getElementById('clearChatBtn');
 
   // Simple Markdown Parser
   function escapeHtml(str) {
