@@ -223,6 +223,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Simple retry wrapper for async fetch operations
+  async function withRetry(fn, maxRetries = 2, delay = 1000) {
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastError = err;
+        if (attempt < maxRetries) {
+          console.warn(`Retry ${attempt + 1}/${maxRetries} after error:`, err.message);
+          await new Promise(r => setTimeout(r, delay * (attempt + 1)));
+        }
+      }
+    }
+    throw lastError;
+  }
+
   // Analyze Repository
   async function loadRepository(repoPath) {
     loadedRepoPath = repoPath;
@@ -390,6 +407,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function clearError() {
     const banner = document.getElementById('errorBanner');
     if (banner) banner.classList.add('hidden');
+  }
+
+  // Success animation helper
+  function showSuccessAnimation() {
+    const el = document.createElement('div');
+    el.className = 'success-flash';
+    el.textContent = '✓';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove(), { once: true });
   }
 
   // Toast notification helper
