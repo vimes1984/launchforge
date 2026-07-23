@@ -427,7 +427,24 @@ app.post('/api/analyze', async (req, res) => {
       };
     }
 
-    res.json(data);
+    // Support pagination for tasks
+    const page = Math.max(1, parseInt(req.body.page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.body.pageSize, 10) || 20));
+    const totalTasks = data.tasks.length;
+    const totalPages = Math.ceil(totalTasks / pageSize);
+    const paginatedTasks = data.tasks.slice((page - 1) * pageSize, page * pageSize);
+
+    res.json({
+      ...data,
+      tasks: paginatedTasks,
+      pagination: {
+        page,
+        pageSize,
+        totalTasks,
+        totalPages,
+        hasMore: page < totalPages
+      }
+    });
   } catch (err) {
     console.error('Analysis error:', err);
     res.status(500).json({ error: 'Internal server error during analysis.' });
