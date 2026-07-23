@@ -173,8 +173,13 @@ app.post('/api/analyze', async (req, res) => {
 // Proxy agent prompts to local OpenClaw gateway
 app.post('/api/chat', async (req, res) => {
   const { agentId, messages } = req.body;
-  if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'messages is required' });
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages must be a non-empty array' });
+  }
+  for (const msg of messages) {
+    if (!msg || typeof msg !== 'object' || !msg.role || !msg.content) {
+      return res.status(400).json({ error: 'Each message must have role and content properties' });
+    }
   }
 
   let systemPrompt = '';
