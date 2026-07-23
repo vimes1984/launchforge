@@ -1,0 +1,10 @@
+{
+  "comment": "LaunchForge vulnerability advisory ignore configuration",
+  "ignore": [
+    {
+      "id": 0,
+      "notes": "Placeholder — use 'npm audit --json' output to populate specific advisory IDs to ignore",
+      "expiry": ""
+    }
+  ]
+}
