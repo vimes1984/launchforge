@@ -342,6 +342,27 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 
+  // Prompt injection detection — reject attempts to override system prompt
+  const injectionPatterns = [
+    /ignore\s+(?:all\s+)?(?:previous|prior|above|prior)\s+(?:instructions|directives|prompts?|commands)/i,
+    /forget\s+(?:all\s+)?(?:previous|prior|above|prior)\s+(?:instructions|directives|prompts?|commands)/i,
+    /you\s+(?:are\s+)?(?:now\s+)?(?:an?|the)\s+AI/i,
+    /system\s+(?:prompt|instruction|directive|message)/i,
+    /override\s+(?:the\s+)?(?:system|default|above|previous)/i,
+    /disregard\s+(?:all\s+)?(?:previous|above|prior)/i
+  ];
+  if (Array.isArray(messages)) {
+    for (const msg of messages.filter(m => m?.role === 'user')) {
+      const content = typeof msg.content === 'string' ? msg.content : '';
+      for (const pattern of injectionPatterns) {
+        if (pattern.test(content)) {
+          console.warn('Prompt injection attempt detected and blocked:', pattern);
+          return res.status(400).json({ error: 'Message contains prohibited instructions and was rejected.', blocked: true });
+        }
+      }
+    }
+  }
+
   const VALID_AGENTS = ['strategist', 'copywriter', 'advisor'];
   if (agentId !== undefined && agentId !== null && agentId !== '' && !VALID_AGENTS.includes(agentId)) {
     return res.status(400).json({ error: `agentId must be one of: ${VALID_AGENTS.join(', ')} or empty` });
