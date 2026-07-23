@@ -21,6 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   let activeAgent = 'strategist';
+  
+  // Per-agent conversation IDs for server-side state tracking
+  let conversationIds = {
+    strategist: null,
+    copywriter: null,
+    advisor: null
+  };
   let loadedRepoPath = '';
 
   // DOM Elements
