@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   let activeAgent = 'strategist';
+  let loadedRepoPath = '';
 
   // DOM Elements
   const repoPathInput = document.getElementById('repoPathInput');
