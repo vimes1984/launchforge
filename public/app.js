@@ -1311,6 +1311,24 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('offline', updateOnlineStatus);
   setTimeout(updateOnlineStatus, 500);
 
+  // Theme toggle (dark/light)
+  const themeToggle = document.getElementById('themeToggleBtn');
+  const savedTheme = localStorage.getItem('launchforge-theme');
+  if (savedTheme === 'light') {
+    document.body.classList.add('light-theme');
+  }
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const isLight = document.body.classList.toggle('light-theme');
+      localStorage.setItem('launchforge-theme', isLight ? 'light' : 'dark');
+      themeToggle.textContent = isLight ? '🌙' : '🌓';
+      themeToggle.title = isLight ? 'Switch to dark theme' : 'Switch to light theme';
+    });
+    // Set initial icon
+    themeToggle.textContent = document.body.classList.contains('light-theme') ? '🌙' : '🌓';
+    themeToggle.title = document.body.classList.contains('light-theme') ? 'Switch to dark theme' : 'Switch to light theme';
+  }
+
   // Global keyboard shortcuts help
   document.addEventListener('keydown', (e) => {
     if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
