@@ -793,7 +793,7 @@ app.post('/api/chat/stream', async (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { agentId, messages, conversationId, temperature, maxTokens, model } = req.body;
+  const { agentId, messages, conversationId, temperature, maxTokens, model, language } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
   }
@@ -844,12 +844,8 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: `agentId must be one of: ${VALID_AGENTS.join(', ')} or empty` });
   }
 
-  const systemPrompt = buildSystemPrompt(agentId);
+  const systemPrompt = buildSystemPrompt(agentId, language);
   const agentMeta = buildAgentMeta(agentId);
-    agent_name: identity.name,
-    agent_role: identity.role,
-    agent_id: agentId || 'default'
-  };
 
   try {
     // Track analytics
