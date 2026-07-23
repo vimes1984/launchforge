@@ -153,7 +153,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Load chat history if any
       const savedHistory = localStorage.getItem(`launchforge-chat-${repoPath}`);
       if (savedHistory) {
-        chatHistories = JSON.parse(savedHistory);
+        try {
+          chatHistories = JSON.parse(savedHistory);
+        } catch (e) {
+          console.warn('Failed to parse saved chat history, using defaults', e);
+        }
       } else {
         // Reset to initial defaults
         chatHistories = {

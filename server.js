@@ -29,6 +29,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
+// Content-Type validation middleware for POST endpoints
+function requireJsonContent(req, res, next) {
+  if (req.method !== 'POST') return next();
+  const ct = req.headers['content-type'] || '';
+  if (!ct.includes('application/json')) {
+    return res.status(415).json({ error: 'Content-Type must be application/json' });
+  }
+  next();
+}
+app.use('/api/analyze', requireJsonContent);
+app.use('/api/chat', requireJsonContent);
+
 // Resolve OpenClaw gateway connection details dynamically
 async function getOpenClawConfig() {
   const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
