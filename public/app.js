@@ -64,15 +64,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function parseMarkdown(md) {
     if (!md) return '';
-    // Escape HTML entities first to prevent XSS, then apply markdown transforms
+    // Escape HTML entities first to prevent XSS, then apply markdown transforms.
+    // Blockquote regexes match &gt; (escaped >) since escapeHtml runs first.
     let html = escapeHtml(md)
       .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>')
       .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
       .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/^>\s+\[!IMPORTANT\]\s*\n>\s+\*\*([^*]+)\*\*\s*\n>\s+(.+)$/gm, '<blockquote class="alert"><strong>$1</strong><br>$2</blockquote>')
-      .replace(/^>\s+(.+)$/gm, '<blockquote>$1</blockquote>')
+      .replace(/^&gt;\s+\[!IMPORTANT\]\s*\n&gt;\s+\*\*([^*]+)\*\*\s*\n&gt;\s+(.+)$/gm, '<blockquote class="alert"><strong>$1</strong><br>$2</blockquote>')
+      .replace(/^&gt;\s+(.+)$/gm, '<blockquote>$1</blockquote>')
       .replace(/^-\s+(.+)$/gm, '<li>$1</li>')
       .replace(/<\/li>\n<li>/g, '</li><li>');
       
@@ -278,6 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (task.status !== 'todo') {
         const leftBtn = document.createElement('button');
         leftBtn.className = 'task-ctrl-btn';
+        leftBtn.type = 'button';
         leftBtn.textContent = '◀';
         leftBtn.addEventListener('click', () => moveTask(task.id, getPrevStatus(task.status)));
         controls.appendChild(leftBtn);
@@ -286,6 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (task.status !== 'done') {
         const rightBtn = document.createElement('button');
         rightBtn.className = 'task-ctrl-btn';
+        rightBtn.type = 'button';
         rightBtn.textContent = '➔';
         rightBtn.addEventListener('click', () => moveTask(task.id, getNextStatus(task.status)));
         controls.appendChild(rightBtn);
@@ -293,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const delBtn = document.createElement('button');
       delBtn.className = 'task-ctrl-btn';
+      delBtn.type = 'button';
       delBtn.textContent = '🗑️';
       delBtn.addEventListener('click', () => deleteTask(task.id));
       controls.appendChild(delBtn);

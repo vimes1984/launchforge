@@ -22,6 +22,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Request logging middleware (method, path, status, duration)
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+});
+
 const PORT = 5000;
 
 // Allowed base directory for local repo path resolution (prevents traversal)
@@ -105,6 +115,18 @@ app.post('/api/analyze', async (req, res) => {
   let tempDir = '';
   let defaultProjectName = '';
 
+  // Command injection prevention: block shell metacharacters in repoPath
+  if (/[;&|`$()]/.test(repoPath)) {
+    return res.status(400).json({ error: "Invalid repoPath: shell metacharacters not allowed" });
+  }
+
+  // Validate git clone URL format to prevent injection via exec()
+  if (repoPath.startsWith("http://") || repoPath.startsWith("https://") || repoPath.startsWith("git@")) {
+    const urlPattern = /^(https?:\/\/|git@)[\w.:@\/-]+\.?[\w]+(\/[\w._-]+)*?$/;
+    if (!urlPattern.test(repoPath)) {
+      return res.status(400).json({ error: "Invalid git URL format" });
+    }
+  }
   const isGithubShorthand = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/.test(repoPath) && !existsSync(path.resolve(repoPath));
   const isGit = repoPath.startsWith('http://') || repoPath.startsWith('https://') || repoPath.startsWith('git@') || isGithubShorthand;
 
