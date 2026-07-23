@@ -64,21 +64,10 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "same-origin" }
 }));
 
-// Request logging + X-Response-Time header + size logging
+// Request logging + size logging
 app.use((req, res, next) => {
   const start = Date.now();
   const reqSize = req.headers['content-length'] || 0;
-
-  // Inject X-Response-Time header before response is sent
-  const originalEnd = res.end.bind(res);
-  res.end = function (...args) {
-    const duration = Date.now() - start;
-    if (!res.headersSent) {
-      res.setHeader('X-Response-Time', `${duration}ms`);
-    }
-    return originalEnd(...args);
-  };
-
   res.on('finish', () => {
     const duration = Date.now() - start;
     const resSize = res.getHeader('content-length') || 0;
@@ -536,7 +525,15 @@ Structure your replies using Markdown with clear sections. Keep answers practica
     recordCircuitSuccess();
 
     const responseData = await response.json();
-    const reply = responseData.choices?.[0]?.message?.content || 'No response from agent.';
+    let reply = responseData.choices?.[0]?.message?.content || 'No response from agent.';
+
+    // Truncate excessively long responses (max 10000 chars) to prevent UI issues
+    const MAX_RESPONSE_LENGTH = 10000;
+    if (reply.length > MAX_RESPONSE_LENGTH) {
+      console.warn(`Agent response truncated from ${reply.length} to ${MAX_RESPONSE_LENGTH} chars`);
+      reply = reply.slice(0, MAX_RESPONSE_LENGTH) + '\n\n_Response was truncated due to length._';
+    }
+
     res.json({ reply });
   } catch (err) {
     recordCircuitFailure();
