@@ -11,8 +11,14 @@ import helmet from 'helmet';
 import compression from 'compression';
 import http from 'node:http';
 import https from 'node:https';
+import net from 'node:net';
 
 const execPromise = promisify(exec);
+
+// Sanitize header values to prevent CRLF injection in proxy requests
+function sanitizeHeaderValue(val) {
+  return String(val).replace(/[\r\n]/g, '').slice(0, 1024);
+}
 
 // Keep-alive agents for connection pooling to gateway
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10, timeout: 30000 });
@@ -96,9 +102,10 @@ const strictLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-  onLimitReached: (req) => {
+  // express-rate-limit v8 removed onLimitReached — log via custom handler
+  handler: (req, res, next, options) => {
     logSecurityEvent('rate_limit_exceeded', req, { limit: 10, windowMs: 60000 });
+    res.status(options.statusCode).json({ error: 'Too many requests, please try again later.' });
   }
 });
 
@@ -162,7 +169,9 @@ const WORKSPACE_BASE = path.resolve('.');
 // Validate that a resolved path stays within the allowed base directory
 function isPathSafe(resolvedPath) {
   const normalized = path.normalize(resolvedPath);
-  return normalized.startsWith(WORKSPACE_BASE);
+  // Must equal base OR be inside it — startsWith alone allows sibling dirs
+  // like /base-evil to pass. Require a path separator boundary.
+  return normalized === WORKSPACE_BASE || normalized.startsWith(WORKSPACE_BASE + path.sep);
 }
 
 // Safe JSON stringify helper — handles circular references
@@ -206,6 +215,34 @@ function recordFailedAuth(ip) {
   logSecurityEvent('auth_failure', { ip }, { totalAttempts: failedAuthAttempts.get(ip).length });
 }
 
+// Optional Bearer-token auth — enabled via REQUIRE_AUTH=true (see .env.example).
+// Protects /api/chat, /api/chat/stream, /api/chat/consolidate and /api/analyze.
+// Health/status/metrics endpoints stay open so the frontend can poll them.
+if (process.env.REQUIRE_AUTH === 'true') {
+  const AUTH_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || '';
+  if (!AUTH_TOKEN) {
+    console.warn('REQUIRE_AUTH=true but OPENCLAW_GATEWAY_TOKEN is empty — auth will reject all requests!');
+  }
+  app.use('/api', (req, res, next) => {
+    const openPaths = ['/health', '/status', '/gateway/health', '/agent/analytics', '/agent/templates'];
+    if (openPaths.includes(req.path)) return next();
+
+    const throttle = checkAuthThrottle(req.ip);
+    if (throttle.blocked) {
+      res.setHeader('Retry-After', String(throttle.retryAfter));
+      return res.status(429).json({ error: 'Too many failed auth attempts. Try again later.' });
+    }
+
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!AUTH_TOKEN || token !== AUTH_TOKEN) {
+      recordFailedAuth(req.ip);
+      return res.status(401).json({ error: 'Unauthorized: valid Bearer token required.' });
+    }
+    next();
+  });
+}
+
 // Security event logger
 function logSecurityEvent(type, req, detail) {
   const entry = {
@@ -222,6 +259,25 @@ function logSecurityEvent(type, req, detail) {
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
+// Gateway health probe — checks if the OpenClaw gateway is reachable.
+// The frontend polls this endpoint (public/app.js checkGatewayHealth).
+app.get('/api/gateway/health', async (req, res) => {
+  try {
+    const gatewayConfig = await getOpenClawConfig();
+    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://localhost:${gatewayConfig.port}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const probe = await fetch(`${gatewayUrl}/v1/models`, {
+      signal: controller.signal,
+      agent: gatewayUrl.startsWith('https') ? httpsAgent : httpAgent
+    });
+    clearTimeout(timeoutId);
+    res.json({ status: probe.ok ? 'ok' : 'degraded', gatewayUrl });
+  } catch (err) {
+    res.json({ status: 'unreachable' });
+  }
 });
 
 // Detailed status endpoint with metrics
@@ -245,9 +301,22 @@ app.get('/api/status', (req, res) => {
 });
 
 // Restrict HTTP methods on API routes — return 405 for unsupported methods
-const ALLOWED_API_METHODS = { '/api/health': ['GET'], '/api/analyze': ['POST'], '/api/chat': ['POST'] };
+// NOTE: inside app.use('/api', ...), req.path is relative to the mount point,
+// so we must match on req.baseUrl + req.path (the full /api/... path).
+const ALLOWED_API_METHODS = {
+  '/api/health': ['GET'],
+  '/api/status': ['GET'],
+  '/api/gateway/health': ['GET'],
+  '/api/agent/analytics': ['GET'],
+  '/api/agent/templates': ['GET'],
+  '/api/analyze': ['POST'],
+  '/api/chat': ['POST'],
+  '/api/chat/stream': ['POST'],
+  '/api/chat/consolidate': ['POST']
+};
 app.use('/api', (req, res, next) => {
-  const allowed = ALLOWED_API_METHODS[req.path];
+  const fullPath = req.baseUrl + req.path;
+  const allowed = ALLOWED_API_METHODS[fullPath];
   if (allowed && !allowed.includes(req.method)) {
     res.setHeader('Allow', allowed.join(', '));
     return res.status(405).json({ error: `Method ${req.method} not allowed. Allowed: ${allowed.join(', ')}` });
@@ -268,6 +337,65 @@ app.use('/api/analyze', strictLimiter);
 app.use('/api/analyze', requireJsonContent);
 app.use('/api/chat', strictLimiter);
 app.use('/api/chat', requireJsonContent);
+app.use('/api/chat/stream', strictLimiter);
+app.use('/api/chat/stream', requireJsonContent);
+app.use('/api/chat/consolidate', strictLimiter);
+app.use('/api/chat/consolidate', requireJsonContent);
+
+// Shared validation for chat message arrays (used by /api/chat, stream, consolidate)
+const MAX_MESSAGE_LENGTH = 10240;
+const MAX_MESSAGES = 200;
+
+function validateMessages(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return { error: 'messages must be a non-empty array' };
+  }
+  if (messages.length > MAX_MESSAGES) {
+    return { error: `messages exceeds maximum count of ${MAX_MESSAGES}` };
+  }
+  for (const msg of messages) {
+    if (!msg || typeof msg !== 'object' || typeof msg.role !== 'string' || typeof msg.content !== 'string') {
+      return { error: 'Each message must have role and content properties' };
+    }
+    if (msg.content.length > MAX_MESSAGE_LENGTH) {
+      return { error: `Message content exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters` };
+    }
+    if (msg.role !== 'user' && msg.role !== 'assistant' && msg.role !== 'system') {
+      return { error: 'Message role must be user, assistant, or system' };
+    }
+  }
+  return { error: null };
+}
+
+// Shared prompt injection detection — rejects attempts to override system prompt
+const injectionPatterns = [
+  /ignore\s+(?:all\s+)?(?:previous|prior|above|prior)\s+(?:instructions|directives|prompts?|commands)/i,
+  /forget\s+(?:all\s+)?(?:previous|prior|above|prior)\s+(?:instructions|directives|prompts?|commands)/i,
+  /you\s+(?:are\s+)?(?:now\s+)?(?:an?|the)\s+AI/i,
+  /system\s+(?:prompt|instruction|directive|message)/i,
+  /override\s+(?:the\s+)?(?:system|default|above|previous)/i,
+  /disregard\s+(?:all\s+)?(?:previous|above|prior)/i
+];
+
+function findInjection(messages) {
+  for (const msg of messages) {
+    if (msg?.role !== 'user') continue;
+    const content = typeof msg.content === 'string' ? msg.content : '';
+    for (const pattern of injectionPatterns) {
+      if (pattern.test(content)) {
+        return pattern;
+      }
+    }
+  }
+  return null;
+}
+
+// Clamp user-supplied sampling params to safe ranges
+function clampSamplingParams(temperature, maxTokens) {
+  const t = temperature == null ? 0.7 : Math.min(Math.max(Number(temperature) || 0.7, 0), 2);
+  const mt = maxTokens == null ? 1000 : Math.min(Math.max(parseInt(maxTokens, 10) || 1000, 1), 8192);
+  return { temperature: t, maxTokens: mt };
+}
 
 // Resolve OpenClaw gateway connection details dynamically
 async function getOpenClawConfig() {
@@ -339,6 +467,18 @@ app.post('/api/analyze', async (req, res) => {
     return res.status(400).json({ error: 'Invalid repoPath: shell metacharacters not allowed' });
   }
 
+  // URL-encoded traversal detection — decode once and twice to catch
+  // %2e%2e%2f and double-encoded variants before they reach path resolution.
+  let decodedPath = repoPath;
+  try { decodedPath = decodeURIComponent(repoPath); } catch { /* keep raw on malformed escape */ }
+  let doubleDecoded = decodedPath;
+  try { doubleDecoded = decodeURIComponent(decodedPath); } catch { /* keep single-decoded */ }
+  for (const candidate of [repoPath, decodedPath, doubleDecoded]) {
+    if (/[\.]{2}[\/\\]/.test(candidate) || candidate.startsWith('..')) {
+      return res.status(400).json({ error: 'Invalid repoPath: path traversal encoding detected' });
+    }
+  }
+
   // Validate git clone URL format to prevent injection via exec()
   if (repoPath.startsWith("http://") || repoPath.startsWith("https://") || repoPath.startsWith("git@")) {
     const urlPattern = /^(https?:\/\/|git@)[\w.:@\/-]+\.?[\w]+(\/[\w._-]+)*?$/;
@@ -355,7 +495,7 @@ app.post('/api/analyze', async (req, res) => {
       if (isGithubShorthand) {
         cloneUrl = `https://github.com/${repoPath}.git`;
       }
-      tempDir = path.join(os.tmpdir(), `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+      tempDir = path.join(process.env.TEMP_DIR || os.tmpdir(), `launchforge-repo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
       await fs.mkdir(tempDir, { recursive: true, mode: 0o700 });      // Create temp directory with restricted permissions (owner-only)      
       const cleanPath = repoPath.replace(/\.git$/, '');
       defaultProjectName = cleanPath.split('/').pop() || 'Git Project';
@@ -705,23 +845,39 @@ app.post('/api/chat/consolidate', async (req, res) => {
   if (!agents || !Array.isArray(agents) || agents.length < 2) {
     return res.status(400).json({ error: 'agents must be an array with at least 2 agent IDs' });
   }
+  if (agents.length > 5) {
+    return res.status(400).json({ error: 'agents must not exceed 5 agent IDs' });
+  }
   if (!message) {
     return res.status(400).json({ error: 'message is required' });
   }
+  if (typeof message !== 'string' || message.length > MAX_MESSAGE_LENGTH) {
+    return res.status(400).json({ error: `message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters` });
+  }
+  const injection = findInjection([{ role: 'user', content: message }]);
+  if (injection) {
+    console.warn('Prompt injection attempt detected and blocked on consolidate:', injection);
+    return res.status(400).json({ error: 'Message contains prohibited instructions and was rejected.', blocked: true });
+  }
+  for (const agentId of agents) {
+    if (!['strategist', 'copywriter', 'advisor'].includes(agentId)) {
+      return res.status(400).json({ error: `agents must be one of: strategist, copywriter, advisor — got "${agentId}"` });
+    }
+  }
 
   try {
+    const gatewayConfig = await getOpenClawConfig();
     const results = [];
     for (const agentId of agents) {
       const systemPrompt = buildSystemPrompt(agentId, language, customPrompt);
       const agentMeta = buildAgentMeta(agentId);
 
-      const gatewayConfig = await getOpenClawConfig();
       const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://localhost:${gatewayConfig.port}`;
       const endpoint = `${gatewayUrl}/v1/chat/completions`;
 
       const headers = { 'Content-Type': 'application/json' };
       const token = process.env.OPENCLAW_GATEWAY_TOKEN || gatewayConfig.token;
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (token) headers['Authorization'] = `Bearer ${sanitizeHeaderValue(token)}`;
 
       const payload = {
         model: 'openclaw',
@@ -741,7 +897,8 @@ app.post('/api/chat/consolidate', async (req, res) => {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
-        signal: controller.signal
+        signal: controller.signal,
+        agent: endpoint.startsWith('https') ? httpsAgent : httpAgent
       });
       clearTimeout(timeoutId);
 
@@ -768,8 +925,16 @@ app.post('/api/chat/consolidate', async (req, res) => {
 // Streaming chat endpoint using SSE
 app.post('/api/chat/stream', async (req, res) => {
   const { agentId, messages, conversationId, temperature, maxTokens, model, language, customPrompt } = req.body;
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages must be a non-empty array' });
+
+  // Validate messages + injection BEFORE opening SSE stream / mutating state
+  const validation = validateMessages(messages);
+  if (validation.error) {
+    return res.status(400).json({ error: validation.error });
+  }
+  const injection = findInjection(messages);
+  if (injection) {
+    console.warn('Prompt injection attempt detected and blocked on stream:', injection);
+    return res.status(400).json({ error: 'Message contains prohibited instructions and was rejected.', blocked: true });
   }
 
   // Set SSE headers
@@ -786,11 +951,11 @@ app.post('/api/chat/stream', async (req, res) => {
 
   const convId = conversationId || `conv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const conversation = getOrCreateConversation(convId, agentId || 'default');
-  for (const msg of messages) {
-    if (msg.role === 'user' || msg.role === 'assistant') {
-      conversation.messages.push(msg);
-      conversation.messageCount++;
-    }
+  // Store only the latest user turn (avoid re-appending full history each request)
+  const lastUserIdx = messages.map(m => m.role).lastIndexOf('user');
+  if (lastUserIdx >= 0) {
+    conversation.messages.push({ role: 'user', content: messages[lastUserIdx].content });
+    conversation.messageCount++;
   }
 
   const systemPrompt = buildSystemPrompt(agentId, language, customPrompt);
@@ -803,16 +968,17 @@ app.post('/api/chat/stream', async (req, res) => {
 
     const headers = { 'Content-Type': 'application/json' };
     const token = process.env.OPENCLAW_GATEWAY_TOKEN || gatewayConfig.token;
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers['Authorization'] = `Bearer ${sanitizeHeaderValue(token)}`;
 
+    const { temperature: safeTemp, maxTokens: safeMaxTokens } = clampSamplingParams(temperature, maxTokens);
     const payload = {
       model: model || 'openclaw',
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages
       ],
-      temperature: temperature ?? 0.7,
-      max_tokens: maxTokens ?? 1000,
+      temperature: safeTemp,
+      max_tokens: safeMaxTokens,
       metadata: agentMeta,
       user: agentMeta.agent_id,
       stream: true
@@ -877,49 +1043,30 @@ app.post('/api/chat/stream', async (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   const { agentId, messages, conversationId, temperature, maxTokens, model, language, customPrompt } = req.body;
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages must be a non-empty array' });
+
+  // Validate messages BEFORE mutating conversation state
+  const validation = validateMessages(messages);
+  if (validation.error) {
+    return res.status(400).json({ error: validation.error });
+  }
+
+  // Prompt injection detection — reject attempts to override system prompt
+  const injection = findInjection(messages);
+  if (injection) {
+    console.warn('Prompt injection attempt detected and blocked:', injection);
+    return res.status(400).json({ error: 'Message contains prohibited instructions and was rejected.', blocked: true });
   }
 
   // Manage conversation state server-side
   const convId = conversationId || `conv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const conversation = getOrCreateConversation(convId, agentId || 'default');
 
-  // Store incoming messages server-side
-  for (const msg of messages) {
-    if (msg.role === 'user' || msg.role === 'assistant') {
-      conversation.messages.push(msg);
-      conversation.messageCount++;
-    }
-  }
-  for (const msg of messages) {
-    if (!msg || typeof msg !== 'object' || !msg.role || !msg.content) {
-      return res.status(400).json({ error: 'Each message must have role and content properties' });
-    }
-    if (msg.content && msg.content.length > 10240) {
-      return res.status(400).json({ error: 'Message content exceeds maximum length of 10KB' });
-    }
-  }
-
-  // Prompt injection detection — reject attempts to override system prompt
-  const injectionPatterns = [
-    /ignore\s+(?:all\s+)?(?:previous|prior|above|prior)\s+(?:instructions|directives|prompts?|commands)/i,
-    /forget\s+(?:all\s+)?(?:previous|prior|above|prior)\s+(?:instructions|directives|prompts?|commands)/i,
-    /you\s+(?:are\s+)?(?:now\s+)?(?:an?|the)\s+AI/i,
-    /system\s+(?:prompt|instruction|directive|message)/i,
-    /override\s+(?:the\s+)?(?:system|default|above|previous)/i,
-    /disregard\s+(?:all\s+)?(?:previous|above|prior)/i
-  ];
-  if (Array.isArray(messages)) {
-    for (const msg of messages.filter(m => m?.role === 'user')) {
-      const content = typeof msg.content === 'string' ? msg.content : '';
-      for (const pattern of injectionPatterns) {
-        if (pattern.test(content)) {
-          console.warn('Prompt injection attempt detected and blocked:', pattern);
-          return res.status(400).json({ error: 'Message contains prohibited instructions and was rejected.', blocked: true });
-        }
-      }
-    }
+  // Store only the NEW user messages (last user turn) server-side — avoid
+  // re-appending the full history on every request (unbounded memory growth).
+  const lastUserIdx = messages.map(m => m.role).lastIndexOf('user');
+  if (lastUserIdx >= 0) {
+    conversation.messages.push({ role: 'user', content: messages[lastUserIdx].content });
+    conversation.messageCount++;
   }
 
   const VALID_AGENTS = ['strategist', 'copywriter', 'advisor'];
@@ -955,22 +1102,20 @@ app.post('/api/chat', async (req, res) => {
     const headers = {
       'Content-Type': 'application/json'
     };
-    function sanitizeHeaderValue(val) {
-      return String(val).replace(/[\r\n]/g, '').slice(0, 1024);
-    }
     const token = process.env.OPENCLAW_GATEWAY_TOKEN || gatewayConfig.token;
     if (token) {
       headers['Authorization'] = 'Bearer ' + sanitizeHeaderValue(token);
     }
 
+    const { temperature: safeTemp, maxTokens: safeMaxTokens } = clampSamplingParams(temperature, maxTokens);
     const payload = {
       model: model || 'openclaw',
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages
       ],
-      temperature: temperature ?? 0.7,
-      max_tokens: maxTokens ?? 1000,
+      temperature: safeTemp,
+      max_tokens: safeMaxTokens,
       metadata: agentMeta,
       user: agentMeta.agent_id
     };
@@ -1115,7 +1260,7 @@ async function startServer() {
 
   // Detect port conflict before binding
   const portInUse = await new Promise((resolve) => {
-    const tester = require('node:net').createServer();
+    const tester = net.createServer();
     tester.once('error', (err) => {
       if (err.code === 'EADDRINUSE') resolve(true);
       else resolve(false);
